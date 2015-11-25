@@ -11,8 +11,6 @@ void allocateMatrices(/* PARAMETERS */) {
 }
 
 /* Reset the matrices for new use */
-/
-
 void resetMatrices(/* PARAMETERS */) {
 
 }

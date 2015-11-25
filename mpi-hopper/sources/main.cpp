@@ -7,6 +7,19 @@
 #include "comm.h"
 #include "matrix.h"
 
+void initMPI(int &argc, char **&argv);
+
+/**
+ * The rank of this processor
+ */
+int rank;
+
+/**
+ * The maximum rank (this is the total number of processors in the system)
+ */
+int maxRank;
+
+
 /* Print a header for results output */
 void resultHeader() {
     printf("Dims  No. Proc.  Avg. RT / Dev. (Eff.)\n");
@@ -46,7 +59,7 @@ int main(int argc, char **argv) {
     double startTime = 0.0, endTime = 0.0, avg, dev; /* Timing */
     double times[10]; /* Times for all runs */
 
-    MPI_Init(&argc, &argv);
+    initMPI(argc, argv);
 
     /* Get MPI process stats */
     /*
@@ -65,24 +78,27 @@ int main(int argc, char **argv) {
     }
 
     /* Write header */
+    if (rank == 0) {
+        resultHeader(); // TODO ?
+    }
 
     /* Make cartesian grid */
 
     /* Make and allocate matrices */
 
     /* Run each config 10 times */
-    for (k = 0; k < 10; k++) {
+    for (int k = 0; k < 10; k++) {
         /* Start timer */
-        MPI_Barrier(/* PARAMETERS */);
-        if (myrank == 0) {
+        MPI_Barrier(MPI_COMM_WORLD); // TODO Do we want to sync on all processors?
+        if (rank == 0) {
             startTime = MPI_Wtime();
         }
 
         /* Do work */
 
         /* End timer */
-        MPI_Barrier(/* PARAMETERS */);
-        if (myrank == 0) {
+        MPI_Barrier(MPI_COMM_WORLD);
+        if (rank == 0) {
             endTime = MPI_Wtime();
             times[k] = endTime - startTime;
         }
@@ -91,12 +107,18 @@ int main(int argc, char **argv) {
     /* Destroy matrices */
 
     /* Print stats */
-    if (myrank == 0) {
+    if (rank == 0) {
         avg = average(10, times, &dev);
-        writeResult(/* MATRIX SIZE */, /* GRID SIZE */, avg, dev, /* EFFICIENCY */);
+        writeResult(0/* MATRIX SIZE */, 0/* GRID SIZE */, avg, dev, 0/* EFFICIENCY */);
     }
 
     /* Exit program */
     MPI_Finalize();
     return 0;
+}
+
+void initMPI(int &argc, char **&argv) {
+    MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &maxRank);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 }

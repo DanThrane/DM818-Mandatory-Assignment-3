@@ -3,11 +3,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <unistd.h>
 
 #include "comm.h"
 #include "matrix.h"
 
 void initMPI(int &argc, char **&argv);
+
+void fillMatrices(int matrixDimensions, double **matrixA, double **matrixB);
 
 /**
  * The rank of this processor
@@ -18,7 +21,6 @@ int rank;
  * The maximum rank (this is the total number of processors in the system)
  */
 int maxRank;
-
 
 /* Print a header for results output */
 void resultHeader() {
@@ -54,28 +56,34 @@ double average(int count, double *list, double *dev) {
 }
 
 int main(int argc, char **argv) {
+    /* Launch MPI, if we we're launching from the command line */
+    if (getenv("OMPI_COMM_WORLD_RANK") == NULL) {
+        // TODO I don't think this will work on hopper. We should look into how this is really done.
+        if (argc == 3) {
+            char **args = (char **) calloc(6, sizeof(char *));
+            args[0] = (char *) "mpirun";
+            args[1] = (char *) "-np";
+            args[2] = argv[1]; // Number of processors
+            args[3] = (char *) "dnsmat";
+            args[4] = argv[1]; // Number of processors
+            args[5] = argv[2]; // Matrix dimensions
+            execvp("mpirun", args);
+            exit(0);
+        }
+        else {
+            printf("Wrong number of parameters\n");
+            exit(-1);
+        }
+    }
+
+    int processorCount = atoi(argv[1]);
+    int matrixDimensions = atoi(argv[2]);
 
     /* Statistics */
     double startTime = 0.0, endTime = 0.0, avg, dev; /* Timing */
     double times[10]; /* Times for all runs */
 
     initMPI(argc, argv);
-
-    /* Get MPI process stats */
-    /*
-    ...
-    */
-
-    /* Get parameters */
-    if (argc == 3) {
-        /* Get number of processes */
-
-        /* Get maximum matrix dimension */
-    }
-    else {
-        printf("Wrong number of parameters\n");
-        exit(-1);
-    }
 
     /* Write header */
     if (rank == 0) {
@@ -85,6 +93,10 @@ int main(int argc, char **argv) {
     /* Make cartesian grid */
 
     /* Make and allocate matrices */
+    double *matrixA = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
+    double *matrixB = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
+
+    fillMatrices(matrixDimensions, &matrixA, &matrixB);
 
     /* Run each config 10 times */
     for (int k = 0; k < 10; k++) {
@@ -103,18 +115,36 @@ int main(int argc, char **argv) {
             times[k] = endTime - startTime;
         }
         /* Reset matrices */
+        fillMatrices(matrixDimensions, &matrixA, &matrixB);
     }
     /* Destroy matrices */
+    free(matrixA);
+    free(matrixB);
 
     /* Print stats */
     if (rank == 0) {
         avg = average(10, times, &dev);
-        writeResult(0/* MATRIX SIZE */, 0/* GRID SIZE */, avg, dev, 0/* EFFICIENCY */);
+        /*
+         * TODO Calculate efficiency:
+         * For determining the speedup and the efficiency you shall not compare your measured parallel runtimes to
+         * actual runtimes using p=1, but you shall assume a 8.4 Gflop/s peak performance per processor and infer the
+         * sequential runtime for p=1 based on that assumption. (Therefore the column "p=1" will have efficiency
+         * values <1.0 that are identical to the fraction of peak performance based on Cray's LibSci runtime
+         * measurements from the first mandatory assignment.)
+         */
+        writeResult(matrixDimensions, processorCount, avg, dev, 0/* EFFICIENCY */);
     }
 
     /* Exit program */
     MPI_Finalize();
     return 0;
+}
+
+void fillMatrices(int matrixDimensions, double **matrixA, double **matrixB) {
+    for (int i = 0; i < matrixDimensions * matrixDimensions; i++) {
+        *matrixA[i] = 2 * drand48() - 1; // Uniformly distributed over [-1, 1]
+        *matrixB[i] = 2 * drand48() - 1; // Uniformly distributed over [-1, 1]
+    }
 }
 
 void initMPI(int &argc, char **&argv) {

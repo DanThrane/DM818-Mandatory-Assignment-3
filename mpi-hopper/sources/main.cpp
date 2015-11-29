@@ -12,6 +12,7 @@ void initMPI(int &argc, char **&argv);
 
 void fillMatrices(int matrixDimensions, double **matrixA, double **matrixB);
 
+void createMpiTopology(int argc, char **argv);
 /**
  * The rank of this processor
  */
@@ -83,20 +84,18 @@ int main(int argc, char **argv) {
     double startTime = 0.0, endTime = 0.0, avg, dev; /* Timing */
     double times[10]; /* Times for all runs */
 
-    initMPI(argc, argv);
-
     /* Write header */
     if (rank == 0) {
         resultHeader(); // TODO ?
     }
 
     /* Make cartesian grid */
-
+    createMpiTopology(argc, argv);
     /* Make and allocate matrices */
     double *matrixA = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
     double *matrixB = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
-
     fillMatrices(matrixDimensions, &matrixA, &matrixB);
+
 
     /* Run each config 10 times */
     for (int k = 0; k < 10; k++) {
@@ -147,8 +146,40 @@ void fillMatrices(int matrixDimensions, double **matrixA, double **matrixB) {
     }
 }
 
+void createMpiTopology(int argc, char **argv) {
+    int maxRank;
+    initMPI(argc, argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &maxRank);
+
+    int processPerDim [4]= {2,2,2,2}; // todo: Figure out how many procs we got.
+    int period [4]= {1,1,1,1};
+
+    //http://www.mpich.org/static/docs/v3.1/www3/MPI_Cart_create.html
+    MPI_Comm newComm = 0;
+    MPI_Cart_create(
+            MPI_COMM_WORLD,
+            /*# of dimensions*/ 3,
+            /*# of proc*/ processPerDim,
+            /*grid is periodic*/ period,
+            /*no reordering*/ 0,
+            /*new comm*/ &newComm);
+
+    //Determines the rank of the calling process in the communicator:
+    int rankInDim;
+    MPI_Comm_rank(newComm, &rankInDim);
+
+    // This wont work dynamically, has to be another way. MPI_Cart_sub?
+    int rank_source, rank_desta, rank_destb, rank_destc, rank_destd;
+    MPI_Cart_shift(newComm, 0,1,&rank_source, &rank_desta);
+    MPI_Cart_shift(newComm, 1,1,&rank_source, &rank_destb);
+    MPI_Cart_shift(newComm, 2,1,&rank_source, &rank_destc);
+    MPI_Cart_shift(newComm, 3,1,&rank_source, &rank_destd);
+
+}
+
 void initMPI(int &argc, char **&argv) {
     MPI_Init(&argc, &argv);
-    MPI_Comm_size(MPI_COMM_WORLD, &maxRank);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    // Not needed:
+    //MPI_Comm_size(MPI_COMM_WORLD, &maxRank);
+    //MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 }

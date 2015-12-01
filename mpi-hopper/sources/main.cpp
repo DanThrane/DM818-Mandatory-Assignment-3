@@ -9,8 +9,8 @@
 #include "matrix.h"
 
 void initMPI(int &argc, char **&argv);
-
 void fillMatrices(int matrixDimensions, double **matrixA, double **matrixB);
+void createMpiTopology(int processorCount , int matrixDimensions);
 
 void createMpiTopology(int argc, char **argv);
 /**
@@ -79,6 +79,7 @@ int main(int argc, char **argv) {
 
     int processorCount = atoi(argv[1]);
     int matrixDimensions = atoi(argv[2]);
+    initMPI(argc, argv);
 
     /* Statistics */
     double startTime = 0.0, endTime = 0.0, avg, dev; /* Timing */
@@ -86,16 +87,17 @@ int main(int argc, char **argv) {
 
     /* Write header */
     if (rank == 0) {
-        resultHeader(); // TODO ?
+        resultHeader(); // TODO ? Todo what? Print/append result i guess?
     }
 
     /* Make cartesian grid */
-    createMpiTopology(argc, argv);
+    createMpiTopology(processorCount ,matrixDimensions);
     /* Make and allocate matrices */
     double *matrixA = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
     double *matrixB = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
-    fillMatrices(matrixDimensions, &matrixA, &matrixB);
-
+    if (rank == 0) {
+        fillMatrices(matrixDimensions, &matrixA, &matrixB);
+    }
 
     /* Run each config 10 times */
     for (int k = 0; k < 10; k++) {
@@ -106,6 +108,7 @@ int main(int argc, char **argv) {
         }
 
         /* Do work */
+        // do dns algorithm
 
         /* End timer */
         MPI_Barrier(MPI_COMM_WORLD);
@@ -146,13 +149,20 @@ void fillMatrices(int matrixDimensions, double **matrixA, double **matrixB) {
     }
 }
 
-void createMpiTopology(int argc, char **argv) {
+void createMpiTopology(int processorCount , int matrixDimensions) {
     int maxRank;
-    initMPI(argc, argv);
     MPI_Comm_size(MPI_COMM_WORLD, &maxRank);
 
-    int processPerDim [4]= {2,2,2,2}; // todo: Figure out how many procs we got.
-    int period [4]= {1,1,1,1};
+    #ifdef DEBUG
+    if (maxRank != processorCount) {
+        printf("Mismatch in proc count between mpi and argument!\n");
+        exit(-1);
+    }
+    #endif
+
+    int pForEachDim = maxRank/3; // todo: Figure out how many processes we got.
+    int processPerDim [3]= {pForEachDim, pForEachDim, pForEachDim};
+    int period [3]= {1,1,1};
 
     //http://www.mpich.org/static/docs/v3.1/www3/MPI_Cart_create.html
     MPI_Comm newComm = 0;
@@ -163,6 +173,13 @@ void createMpiTopology(int argc, char **argv) {
             /*grid is periodic*/ period,
             /*no reordering*/ 0,
             /*new comm*/ &newComm);
+
+    #ifdef DEBUG
+    if (3 * pForEachDim != processorCount) {
+        printf("Mismatch in proc count between sum of each proc and total!\n");
+        exit(-1);
+    }
+    #endif
 
     //Determines the rank of the calling process in the communicator:
     int rankInDim;

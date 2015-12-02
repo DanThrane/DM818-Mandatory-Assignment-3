@@ -11,6 +11,7 @@
 void initMPI(int &argc, char **&argv);
 void fillMatrices(int matrixDimensions, double **matrixA, double **matrixB);
 void createMpiTopology(int processorCount , int matrixDimensions);
+void dns(double *matrixA, double *matrixB);
 
 void createMpiTopology(int argc, char **argv);
 /**
@@ -91,6 +92,7 @@ int main(int argc, char **argv) {
     }
 
     /* Make cartesian grid */
+
     createMpiTopology(processorCount ,matrixDimensions);
     /* Make and allocate matrices */
     double *matrixA = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
@@ -108,7 +110,7 @@ int main(int argc, char **argv) {
         }
 
         /* Do work */
-        // do dns algorithm
+        dns(matrixA, matrixB);
 
         /* End timer */
         MPI_Barrier(MPI_COMM_WORLD);
@@ -162,7 +164,7 @@ void createMpiTopology(int processorCount , int matrixDimensions) {
 
     int pForEachDim = maxRank/3; // todo: Figure out how many processes we got.
     int processPerDim [3]= {pForEachDim, pForEachDim, pForEachDim};
-    int period [3]= {1,1,1};
+    int period[3]= {1,1,1};
 
     //http://www.mpich.org/static/docs/v3.1/www3/MPI_Cart_create.html
     MPI_Comm newComm = 0;
@@ -181,18 +183,45 @@ void createMpiTopology(int processorCount , int matrixDimensions) {
     }
     #endif
 
-    //Determines the rank of the calling process in the communicator:
+    // Determines the rank of the calling process in the communicator:
     int rankInDim;
     MPI_Comm_rank(newComm, &rankInDim);
 
-    // This wont work dynamically, has to be another way. MPI_Cart_sub?
-    int rank_source, rank_desta, rank_destb, rank_destc, rank_destd;
+    // MPI_Cart_sub?
+    // http://www.mpich.org/static/docs/v3.1/www3/MPI_Cart_sub.html
+    // I dont completely understand HOW to use this.
+    // It should give a communicator for all nodes in k, j, i, directions
+    // according to what we want.
+    // Ex this should give for all nodes in j:
+    MPI_Comm commFor_j_Dim;
+    int dimWeWant[3] = {1, 0 ,0};
+    MPI_Cart_sub(
+            /*MPI_Comm comm*/ newComm,
+            /*const int remain_dims[]*/ dimWeWant,
+            /*MPI_Comm *newcomm*/ &commFor_j_Dim
+    );
+
+
+    #ifdef DEBUG
+    int rank_source, rank_desta, rank_destb, rank_destc;
     MPI_Cart_shift(newComm, 0,1,&rank_source, &rank_desta);
     MPI_Cart_shift(newComm, 1,1,&rank_source, &rank_destb);
     MPI_Cart_shift(newComm, 2,1,&rank_source, &rank_destc);
-    MPI_Cart_shift(newComm, 3,1,&rank_source, &rank_destd);
-
+    printf("I am known as %i adjacents are -> a:%i and b:%i and c:%i \n",
+           rankInDim, rank_desta, rank_destb, rank_destc);
+    #endif
 }
+
+void dns(double *matrixA, double *matrixB) {
+    // Distribute A and B according to DNS algorithm. (hard part)
+
+    // Do the actual multiplication. (find lib to use)
+
+    // Reduce from k dimension to root (dim == 0).
+
+    // Gather from all p to root process.
+
+};
 
 void initMPI(int &argc, char **&argv) {
     MPI_Init(&argc, &argv);

@@ -142,7 +142,6 @@ void fillMatrices(int matrixDimensions, double **matrixA, double **matrixB) {
     }
 }
 
-#define SIZE 64
 #define UP    0
 #define DOWN  1
 #define LEFT  2
@@ -153,28 +152,25 @@ void initMPI(int &argc, char **&argv) {
     int rank;
     int neighbors[4];
     int reorder = 0;
-    int dimensions[3] = {4, 4, 4};
-    int periods[3] = {false, false, false};
-    int coordinates[3];
 
     MPI_Comm gridCommunicator;
-
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &maxRank);
 
-    if (maxRank == SIZE) {
-        MPI_Cart_create(MPI_COMM_WORLD, 3, dimensions, periods, reorder, &gridCommunicator);
-        MPI_Comm_rank(gridCommunicator, &rank);
-        MPI_Cart_coords(gridCommunicator, rank, 3, coordinates);
-        MPI_Cart_shift(gridCommunicator, 0, 1, &neighbors[UP], &neighbors[DOWN]);
-        MPI_Cart_shift(gridCommunicator, 1, 1, &neighbors[LEFT], &neighbors[RIGHT]);
+    int processesForEachDimension = (int) ceil(pow(maxRank, 0.333));
+    int dimensions[3] = {processesForEachDimension, processesForEachDimension, processesForEachDimension};
+    int periods[3] = {false, false, false};
+    int coordinates[3];
 
-        printf("rank= %d coordinates= %d %d %d  neighbors(u,d,l,r)= %d %d %d %d\n",
-               rank, coordinates[0], coordinates[1], coordinates[2], neighbors[UP], neighbors[DOWN], neighbors[LEFT],
-               neighbors[RIGHT]);
-    } else {
-        printf("Must specify %d processors. Terminating.\n", SIZE);
-    }
+    MPI_Cart_create(MPI_COMM_WORLD, 3, dimensions, periods, reorder, &gridCommunicator);
+    MPI_Comm_rank(gridCommunicator, &rank);
+    MPI_Cart_coords(gridCommunicator, rank, 3, coordinates);
+    MPI_Cart_shift(gridCommunicator, 0, 1, &neighbors[UP], &neighbors[DOWN]);
+    MPI_Cart_shift(gridCommunicator, 1, 1, &neighbors[LEFT], &neighbors[RIGHT]);
+
+    printf("rank= %d coordinates= %d %d %d  neighbors(u,d,l,r)= %d %d %d %d\n",
+           rank, coordinates[0], coordinates[1], coordinates[2], neighbors[UP], neighbors[DOWN], neighbors[LEFT],
+           neighbors[RIGHT]);
 
     MPI_Finalize();
     exit(0);

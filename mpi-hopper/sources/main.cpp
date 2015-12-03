@@ -4,7 +4,7 @@
 
 void initMPI(int &argc, char **&argv);
 
-void fillMatrices(int matrixDimensions, double **matrixA, double **matrixB);
+void fillMatrices(int matrixDimensions, double *matrixA, double *matrixB);
 
 void dns(double *matrixA, double *matrixB);
 
@@ -17,6 +17,8 @@ int rank;
  * The maximum rank (this is the total number of processors in the system)
  */
 int maxRank;
+int coordinates[3];
+MPI_Comm iComm, jComm, kComm;
 
 /* Print a header for results output */
 void resultHeader() {
@@ -86,12 +88,14 @@ int main(int argc, char **argv) {
     }
 
     /* Make and allocate matrices */
-    double *matrixA = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
-    double *matrixB = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
+    double *matrixA;
+    double *matrixB;
     if (rank == 0) {
-        fillMatrices(matrixDimensions, &matrixA, &matrixB);
+        matrixA = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
+        matrixB = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
+        fillMatrices(matrixDimensions, matrixA, matrixB);
     }
-
+#if false
     /* Run each config 10 times */
     for (int k = 0; k < 10; k++) {
         /* Start timer */
@@ -110,11 +114,12 @@ int main(int argc, char **argv) {
             times[k] = endTime - startTime;
         }
         /* Reset matrices */
-        fillMatrices(matrixDimensions, &matrixA, &matrixB);
+        fillMatrices(matrixDimensions, matrixA, matrixB);
     }
     /* Destroy matrices */
     free(matrixA);
     free(matrixB);
+#endif
 
     /* Print stats */
     if (rank == 0) {
@@ -135,17 +140,14 @@ int main(int argc, char **argv) {
     return 0;
 }
 
-void fillMatrices(int matrixDimensions, double **matrixA, double **matrixB) {
+void fillMatrices(int matrixDimensions, double *matrixA, double *matrixB) {
     for (int i = 0; i < matrixDimensions * matrixDimensions; i++) {
-        *matrixA[i] = 2 * drand48() - 1; // Uniformly distributed over [-1, 1]
-        *matrixB[i] = 2 * drand48() - 1; // Uniformly distributed over [-1, 1]
+        matrixA[i] = 2 * drand48() - 1; // Uniformly distributed over [-1, 1]
+        matrixB[i] = 2 * drand48() - 1; // Uniformly distributed over [-1, 1]
     }
 }
 
 void initMPI(int &argc, char **&argv) {
-    int maxRank;
-    int rank;
-
     MPI_Comm gridCommunicator;
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &maxRank);
@@ -153,7 +155,6 @@ void initMPI(int &argc, char **&argv) {
     int processesForEachDimension = (int) ceil(cbrt(maxRank));
     int dimensions[3] = {processesForEachDimension, processesForEachDimension, processesForEachDimension};
     int periods[3] = {false, false, false};
-    int coordinates[3];
 
     MPI_Cart_create(MPI_COMM_WORLD, 3, dimensions, periods, 0, &gridCommunicator);
     MPI_Comm_rank(gridCommunicator, &rank);
@@ -162,16 +163,12 @@ void initMPI(int &argc, char **&argv) {
     int iDimensions[3] = {1, 0, 0};
     int jDimensions[3] = {0, 1, 0};
     int kDimensions[3] = {0, 0, 1};
-    MPI_Comm iComm, jComm, kComm;
 
     MPI_Cart_sub(gridCommunicator, iDimensions, &iComm);
     MPI_Cart_sub(gridCommunicator, jDimensions, &jComm);
     MPI_Cart_sub(gridCommunicator, kDimensions, &kComm);
 
     printf("rank= %d coordinates= %d %d %d\n", rank, coordinates[0], coordinates[1], coordinates[2]);
-
-    MPI_Finalize();
-    exit(0);
 }
 
 void dns(double *matrixA, double *matrixB) {

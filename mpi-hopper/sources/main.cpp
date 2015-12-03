@@ -2,15 +2,17 @@
 #include <math.h>
 #include <unistd.h>
 
-//NOTE: #include <acml.h> //assumes AMD platform
-extern "C" {
-#include <cblas.h> //assumes general CBLAS interface
-}
-
 void squareDgemm(int n, double *A, double *B, double *C) {
-    cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n, 1, A, n, B, n, 1, C, n);
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            double cij = C[i + j * n];
+            for (int k = 0; k < n; k++) {
+                cij += A[i + k * n] * B[k + j * n];
+            }
+            C[i + j * n] = cij;
+        }
+    }
 }
-
 
 void initMPI(int &argc, char **&argv);
 
@@ -36,7 +38,9 @@ MPI_Comm iComm, jComm, kComm, ijComm;
 
 double *receivedMatrixA;
 double *receivedMatrixB;
+double *resultMatrix;
 int blockLength;
+MPI_Op matrixSum;
 
 /* Print a header for results output */
 void resultHeader() {
@@ -105,6 +109,7 @@ int main(int argc, char **argv) {
         resultHeader();
     }
 
+
     /* Make and allocate matrices */
     double *matrixA = NULL;
     double *matrixB = NULL;
@@ -114,30 +119,30 @@ int main(int argc, char **argv) {
         fillMatrices(matrixDimensions, matrixA, matrixB);
     }
     blockAndDistribute(processorCount, matrixDimensions, matrixA, matrixB);
-
-    /* Run each config 10 times */
-    for (int k = 0; k < 10; k++) {
-        /* Start timer */
-        MPI_Barrier(MPI_COMM_WORLD);
-        if (rank == 0) {
-            startTime = MPI_Wtime();
-        }
-
-        /* Do work */
-        dns();
-
-        /* End timer */
-        MPI_Barrier(MPI_COMM_WORLD);
-        if (rank == 0) {
-            endTime = MPI_Wtime();
-            times[k] = endTime - startTime;
-        }
-        /* Reset matrices */
-        fillMatrices(matrixDimensions, matrixA, matrixB);
+    if (coordinates[2] == 0) {
+        resultMatrix = (double *) malloc(sizeof(double) * blockLength * blockLength);
     }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    /* Do work */
+    dns();
+
+    if (coordinates[2] == 0) {
+        printf("For (%d, %d)", coordinates[0], coordinates[1]);
+        for (int i = 0; i < blockLength * blockLength; i++) {
+            if (i % blockLength == 0) {
+                printf("\n");
+            }
+            printf("%.2f\t", resultMatrix[i]);
+        }
+    }
+
     /* Destroy matrices */
-    free(matrixA);
-    free(matrixB);
+    if (rank == 0) {
+        free(matrixA);
+        free(matrixB);
+    }
 
     /* Print stats */
     if (rank == 0) {
@@ -196,8 +201,10 @@ void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA
                                            k * matrixDimension;
 
                         // Copy them into the prepared matrices
-                        memcpy(&preparedMatrixA[offsetPreparedA], &matrixA[offsetMatrix], sizeof(double) * blockLength);
-                        memcpy(&preparedMatrixB[offsetPreparedB], &matrixB[offsetMatrix], sizeof(double) * blockLength);
+                        memcpy(&preparedMatrixA[offsetPreparedA], &matrixA[offsetMatrix],
+                               sizeof(double) * blockLength);
+                        memcpy(&preparedMatrixB[offsetPreparedB], &matrixB[offsetMatrix],
+                               sizeof(double) * blockLength);
                     }
                 }
             }
@@ -208,9 +215,11 @@ void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA
             displacements[i] = i * blockLength * blockLength;
         }
 
-        MPI_Scatterv(preparedMatrixA, sendCount, displacements, MPI_DOUBLE, receivedMatrixA, blockLength * blockLength,
+        MPI_Scatterv(preparedMatrixA, sendCount, displacements, MPI_DOUBLE, receivedMatrixA,
+                     blockLength * blockLength,
                      MPI_DOUBLE, 0, ijComm);
-        MPI_Scatterv(preparedMatrixB, sendCount, displacements, MPI_DOUBLE, receivedMatrixB, blockLength * blockLength,
+        MPI_Scatterv(preparedMatrixB, sendCount, displacements, MPI_DOUBLE, receivedMatrixB,
+                     blockLength * blockLength,
                      MPI_DOUBLE, 0, ijComm);
 
 #ifdef DEBUG
@@ -251,10 +260,20 @@ void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA
     }
 }
 
+void sumMatrices(void *in, void *inout, int *length, MPI_Datatype *type) {
+    double *a = (double *) in;
+    double *b = (double *) inout;
+    for (int i = 0; i < *length; i++) {
+        b[i] = a[i] + b[i];
+    }
+}
+
 void fillMatrices(int matrixDimensions, double *matrixA, double *matrixB) {
     for (int i = 0; i < matrixDimensions * matrixDimensions; i++) {
-        matrixA[i] = 2 * drand48() - 1; // Uniformly distributed over [-1, 1]
-        matrixB[i] = 2 * drand48() - 1; // Uniformly distributed over [-1, 1]
+//        matrixA[i] = 2 * drand48() - 1; // Uniformly distributed over [-1, 1]
+//        matrixB[i] = 2 * drand48() - 1; // Uniformly distributed over [-1, 1]
+        matrixA[i] = i;
+        matrixB[i] = i;
     }
 }
 
@@ -282,6 +301,8 @@ void initMPI(int &argc, char **&argv) {
     MPI_Cart_sub(gridCommunicator, ijDimensions, &ijComm);
 
     printf("rank= %d coordinates= %d %d %d\n", rank, coordinates[0], coordinates[1], coordinates[2]);
+
+    MPI_Op_create(sumMatrices, true, &matrixSum);
 }
 
 /**
@@ -310,17 +331,20 @@ void broadcast() {
     MPI_Bcast(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, 0, iComm);
 }
 
-void multiply(int matrixDimension) {
-    double *matrixC = (double *) malloc(sizeof(double) * blockLength * blockLength);
-    squareDgemm(matrixDimension, receivedMatrixA, receivedMatrixB, matrixC);
+void reduction(double *matrixC) {
+    MPI_Reduce(matrixC, resultMatrix, blockLength * blockLength, MPI_DOUBLE, matrixSum, 0, kComm);
 }
 
-void reduction() {
-
+void multiplyAndReduce() {
+    double *matrixC = (double *) malloc(sizeof(double) * blockLength * blockLength);
+    squareDgemm(blockLength, receivedMatrixA, receivedMatrixB, matrixC);
+    reduction(matrixC);
+    free(matrixC);
 }
 
 void dns() {
-
+    broadcast();
+    multiplyAndReduce();
 }
 
 void waitForDebugger() {

@@ -142,16 +142,9 @@ void fillMatrices(int matrixDimensions, double **matrixA, double **matrixB) {
     }
 }
 
-#define UP    0
-#define DOWN  1
-#define LEFT  2
-#define RIGHT 3
-
 void initMPI(int &argc, char **&argv) {
     int maxRank;
     int rank;
-    int neighbors[4];
-    int reorder = 0;
 
     MPI_Comm gridCommunicator;
     MPI_Init(&argc, &argv);
@@ -162,11 +155,9 @@ void initMPI(int &argc, char **&argv) {
     int periods[3] = {false, false, false};
     int coordinates[3];
 
-    MPI_Cart_create(MPI_COMM_WORLD, 3, dimensions, periods, reorder, &gridCommunicator);
+    MPI_Cart_create(MPI_COMM_WORLD, 3, dimensions, periods, 0, &gridCommunicator);
     MPI_Comm_rank(gridCommunicator, &rank);
     MPI_Cart_coords(gridCommunicator, rank, 3, coordinates);
-    MPI_Cart_shift(gridCommunicator, 0, 1, &neighbors[UP], &neighbors[DOWN]);
-    MPI_Cart_shift(gridCommunicator, 1, 1, &neighbors[LEFT], &neighbors[RIGHT]);
 
     int iDimensions[3] = {1, 0, 0};
     int jDimensions[3] = {0, 1, 0};
@@ -177,9 +168,7 @@ void initMPI(int &argc, char **&argv) {
     MPI_Cart_sub(gridCommunicator, jDimensions, &jComm);
     MPI_Cart_sub(gridCommunicator, kDimensions, &kComm);
 
-    printf("rank= %d coordinates= %d %d %d  neighbors(u,d,l,r)= %d %d %d %d\n",
-           rank, coordinates[0], coordinates[1], coordinates[2], neighbors[UP], neighbors[DOWN], neighbors[LEFT],
-           neighbors[RIGHT]);
+    printf("rank= %d coordinates= %d %d %d\n", rank, coordinates[0], coordinates[1], coordinates[2]);
 
     MPI_Finalize();
     exit(0);

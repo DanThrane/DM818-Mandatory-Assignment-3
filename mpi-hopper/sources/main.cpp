@@ -109,7 +109,6 @@ int main(int argc, char **argv) {
         resultHeader();
     }
 
-
     /* Make and allocate matrices */
     double *matrixA = NULL;
     double *matrixB = NULL;
@@ -127,7 +126,7 @@ int main(int argc, char **argv) {
 
     /* Do work */
     dns();
-
+/*
     if (coordinates[2] == 0) {
         printf("For (%d, %d)", coordinates[0], coordinates[1]);
         for (int i = 0; i < blockLength * blockLength; i++) {
@@ -137,7 +136,7 @@ int main(int argc, char **argv) {
             printf("%.2f\t", resultMatrix[i]);
         }
     }
-
+*/
     /* Destroy matrices */
     if (rank == 0) {
         free(matrixA);
@@ -221,7 +220,6 @@ void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA
         MPI_Scatterv(preparedMatrixB, sendCount, displacements, MPI_DOUBLE, receivedMatrixB,
                      blockLength * blockLength,
                      MPI_DOUBLE, 0, ijComm);
-
 #ifdef DEBUG
         MPI_Barrier(ijComm);
         if (rank == 0) {
@@ -327,8 +325,8 @@ void distribute() {
  * Step C
  */
 void broadcast() {
-    MPI_Bcast(receivedMatrixA, blockLength * blockLength, MPI_DOUBLE, 0, jComm);
-    MPI_Bcast(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, 0, iComm);
+    MPI_Bcast(receivedMatrixA, blockLength * blockLength, MPI_DOUBLE, coordinates[0], jComm);
+    MPI_Bcast(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, coordinates[1], iComm);
 }
 
 void reduction(double *matrixC) {
@@ -343,7 +341,31 @@ void multiplyAndReduce() {
 }
 
 void dns() {
+    distribute();
+
+//    printf("(%d, %d, %d) %.2f\n", coordinates[0], coordinates[1], coordinates[2], receivedMatrixA[0]);
     broadcast();
+#if true
+    if (coordinates[2] == 1) {
+        int commRank;
+        MPI_Comm_rank(ijComm, &commRank);
+
+        for (int iwant = 0; iwant < 16; iwant++) {
+            MPI_Barrier(ijComm);
+            if (commRank == iwant) {
+                printf("FOR RANK: %d", iwant);
+                for (int i = 0; i < blockLength * blockLength; i++) {
+                    if (i % blockLength == 0) {
+                        printf("\n");
+                    }
+                    printf("%.2f\t", receivedMatrixA[i]);
+                }
+                printf("\n");
+            }
+        }
+    }
+#endif
+//    printf("(%d, %d, %d) %.2f\n", coordinates[0], coordinates[1], coordinates[2], receivedMatrixA[0]);
     multiplyAndReduce();
 }
 

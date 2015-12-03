@@ -157,7 +157,7 @@ void initMPI(int &argc, char **&argv) {
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &maxRank);
 
-    int processesForEachDimension = (int) ceil(pow(maxRank, 0.333));
+    int processesForEachDimension = (int) ceil(cbrt(maxRank));
     int dimensions[3] = {processesForEachDimension, processesForEachDimension, processesForEachDimension};
     int periods[3] = {false, false, false};
     int coordinates[3];
@@ -167,6 +167,15 @@ void initMPI(int &argc, char **&argv) {
     MPI_Cart_coords(gridCommunicator, rank, 3, coordinates);
     MPI_Cart_shift(gridCommunicator, 0, 1, &neighbors[UP], &neighbors[DOWN]);
     MPI_Cart_shift(gridCommunicator, 1, 1, &neighbors[LEFT], &neighbors[RIGHT]);
+
+    int iDimensions[3] = {1, 0, 0};
+    int jDimensions[3] = {0, 1, 0};
+    int kDimensions[3] = {0, 0, 1};
+    MPI_Comm iComm, jComm, kComm;
+
+    MPI_Cart_sub(gridCommunicator, iDimensions, &iComm);
+    MPI_Cart_sub(gridCommunicator, jDimensions, &jComm);
+    MPI_Cart_sub(gridCommunicator, kDimensions, &kComm);
 
     printf("rank= %d coordinates= %d %d %d  neighbors(u,d,l,r)= %d %d %d %d\n",
            rank, coordinates[0], coordinates[1], coordinates[2], neighbors[UP], neighbors[DOWN], neighbors[LEFT],

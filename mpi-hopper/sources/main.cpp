@@ -8,6 +8,10 @@ void fillMatrices(int matrixDimensions, double *matrixA, double *matrixB);
 
 void dns(double *matrixA, double *matrixB);
 
+void blockAndDistribute(int processorCount, int matrixDimension, double *pDouble, double *matrixB);
+
+void waitForDebugger();
+
 /**
  * The rank of this processor
  */
@@ -18,7 +22,7 @@ int rank;
  */
 int maxRank;
 int coordinates[3];
-MPI_Comm iComm, jComm, kComm;
+MPI_Comm iComm, jComm, kComm, ijComm;
 
 /* Print a header for results output */
 void resultHeader() {
@@ -88,13 +92,14 @@ int main(int argc, char **argv) {
     }
 
     /* Make and allocate matrices */
-    double *matrixA;
-    double *matrixB;
+    double *matrixA = NULL;
+    double *matrixB = NULL;
     if (rank == 0) {
         matrixA = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
         matrixB = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
         fillMatrices(matrixDimensions, matrixA, matrixB);
     }
+    blockAndDistribute(processorCount, matrixDimensions, matrixA, matrixB);
 #if false
     /* Run each config 10 times */
     for (int k = 0; k < 10; k++) {
@@ -125,6 +130,7 @@ int main(int argc, char **argv) {
     if (rank == 0) {
         avg = average(10, times, &dev);
         /*
+         *
          * TODO Calculate efficiency:
          * For determining the speedup and the efficiency you shall not compare your measured parallel runtimes to
          * actual runtimes using p=1, but you shall assume a 8.4 Gflop/s peak performance per processor and infer the
@@ -138,6 +144,97 @@ int main(int argc, char **argv) {
     /* Exit program */
     MPI_Finalize();
     return 0;
+}
+
+void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA, double *matrixB) {
+    if (coordinates[2] != 0) return;
+
+    double *preparedMatrixA = NULL;
+    double *preparedMatrixB = NULL;
+
+    int sendCount[processorCount];
+    int displacements[processorCount];
+
+    int length = (int) ceil(cbrt(processorCount));
+    int blockLength = matrixDimension / length;
+
+    double *receivedMatrixA = (double *) malloc(sizeof(double) * blockLength * blockLength);
+    double *receivedMatrixB = (double *) malloc(sizeof(double) * blockLength * blockLength);
+
+    if (rank == 0) {
+        preparedMatrixA = (double *) malloc(sizeof(double) * matrixDimension * matrixDimension);
+        preparedMatrixB = (double *) malloc(sizeof(double) * matrixDimension * matrixDimension);
+
+        for (int i = 0; i < length; i++) {
+            for (int j = 0; j < length; j++) {
+                for (int k = 0; k < blockLength; k++) {
+                    // Offset into the prepared matrix
+                    int offsetPreparedA = j * length * (blockLength * blockLength) +
+                                          i * (blockLength * blockLength) +
+                                          k * blockLength;
+
+                    int offsetPreparedB = i * length * (blockLength * blockLength) +
+                                          j * (blockLength * blockLength) +
+                                          k * blockLength;
+
+                    // The start of the matrix
+                    int offsetMatrix = j * matrixDimension * blockLength +
+                                       i * blockLength +
+                                       k * matrixDimension;
+
+                    // Copy them into the prepared matrices
+                    memcpy(&preparedMatrixA[offsetPreparedA], &matrixA[offsetMatrix], sizeof(double) * blockLength);
+                    memcpy(&preparedMatrixB[offsetPreparedB], &matrixB[offsetMatrix], sizeof(double) * blockLength);
+                }
+            }
+        }
+    }
+
+    for (int i = 0; i < processorCount; i++) {
+        sendCount[i] = blockLength * blockLength;
+        displacements[i] = i * blockLength * blockLength;
+    }
+
+    MPI_Scatterv(preparedMatrixA, sendCount, displacements, MPI_DOUBLE, receivedMatrixA, blockLength * blockLength,
+                 MPI_DOUBLE, 0, ijComm);
+    MPI_Scatterv(preparedMatrixB, sendCount, displacements, MPI_DOUBLE, receivedMatrixB, blockLength * blockLength,
+                 MPI_DOUBLE, 0, ijComm);
+
+#ifdef DEBUG
+    MPI_Barrier(ijComm);
+    if (rank == 0) {
+        for (int i = 0; i < matrixDimension * matrixDimension; i++) {
+            if (i % matrixDimension == 0) {
+                printf("\n");
+            }
+            printf("%.2f\t", matrixA[i]);
+        }
+        printf("\n");
+        printf("----------------------------------------------\n");
+    }
+
+    int commRank;
+    MPI_Comm_rank(ijComm, &commRank);
+
+    for (int iwant = 0; iwant < 16; iwant++) {
+        MPI_Barrier(ijComm);
+        if (commRank == iwant) {
+            printf("FOR RANK: %d", iwant);
+            for (int i = 0; i < blockLength * blockLength; i++) {
+                if (i % blockLength == 0) {
+                    printf("\n");
+                }
+                printf("%.2f\t", receivedMatrixA[i]);
+            }
+            printf("\n");
+        }
+    }
+#endif
+
+    if (rank == 0) {
+        free(preparedMatrixA);
+        free(preparedMatrixB);
+    }
 }
 
 void fillMatrices(int matrixDimensions, double *matrixA, double *matrixB) {
@@ -163,14 +260,27 @@ void initMPI(int &argc, char **&argv) {
     int iDimensions[3] = {1, 0, 0};
     int jDimensions[3] = {0, 1, 0};
     int kDimensions[3] = {0, 0, 1};
+    int ijDimensions[3] = {1, 1, 0};
 
     MPI_Cart_sub(gridCommunicator, iDimensions, &iComm);
     MPI_Cart_sub(gridCommunicator, jDimensions, &jComm);
     MPI_Cart_sub(gridCommunicator, kDimensions, &kComm);
+    MPI_Cart_sub(gridCommunicator, ijDimensions, &ijComm);
 
     printf("rank= %d coordinates= %d %d %d\n", rank, coordinates[0], coordinates[1], coordinates[2]);
 }
 
 void dns(double *matrixA, double *matrixB) {
 
+}
+
+void waitForDebugger() {
+    int i = 0;
+    char hostname[256];
+    gethostname(hostname, sizeof(hostname));
+    printf("PID %d on %s ready for attach\n", getpid(), hostname);
+    fflush(stdout);
+    while (0 == i) { // Set i to some value != 0 using the debugger to continue
+        sleep(5);
+    }
 }

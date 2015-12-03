@@ -155,19 +155,24 @@ void createMpiTopology(int processorCount , int matrixDimensions) {
     int maxRank;
     MPI_Comm_size(MPI_COMM_WORLD, &maxRank);
 
-    #ifdef DEBUG
     if (maxRank != processorCount) {
         printf("Mismatch in proc count between mpi and argument!\n");
         exit(-1);
     }
+
+    #ifdef DEBUG
+    if ((log(maxRank) / log(3) % 1) != 0) {
+        printf("Number of processes does not fit perfectly into cube (remainder not 0)");
+        exit(-1);
+    }
     #endif
 
-    int pForEachDim = maxRank/3; // todo: Figure out how many processes we got.
+    int pForEachDim = (int)log(maxRank) / log(3);
     int processPerDim [3]= {pForEachDim, pForEachDim, pForEachDim};
     int period[3]= {1,1,1};
 
     //http://www.mpich.org/static/docs/v3.1/www3/MPI_Cart_create.html
-    MPI_Comm newComm = 0;
+    MPI_Comm newComm;
     MPI_Cart_create(
             MPI_COMM_WORLD,
             /*# of dimensions*/ 3,
@@ -200,7 +205,6 @@ void createMpiTopology(int processorCount , int matrixDimensions) {
             /*const int remain_dims[]*/ dimWeWant,
             /*MPI_Comm *newcomm*/ &commFor_j_Dim
     );
-
 
     #ifdef DEBUG
     int rank_source, rank_desta, rank_destb, rank_destc;

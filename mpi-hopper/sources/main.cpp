@@ -1,19 +1,13 @@
 #include <mpi.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 #include <math.h>
 #include <unistd.h>
 
-#include "comm.h"
-#include "matrix.h"
-
 void initMPI(int &argc, char **&argv);
+
 void fillMatrices(int matrixDimensions, double **matrixA, double **matrixB);
-void createMpiTopology(int processorCount , int matrixDimensions);
+
 void dns(double *matrixA, double *matrixB);
 
-void createMpiTopology(int argc, char **argv);
 /**
  * The rank of this processor
  */
@@ -91,9 +85,6 @@ int main(int argc, char **argv) {
         resultHeader(); // TODO ? Todo what? Print/append result i guess?
     }
 
-    /* Make cartesian grid */
-
-    createMpiTopology(processorCount ,matrixDimensions);
     /* Make and allocate matrices */
     double *matrixA = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
     double *matrixB = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
@@ -151,85 +142,44 @@ void fillMatrices(int matrixDimensions, double **matrixA, double **matrixB) {
     }
 }
 
-void createMpiTopology(int processorCount , int matrixDimensions) {
+#define SIZE 64
+#define UP    0
+#define DOWN  1
+#define LEFT  2
+#define RIGHT 3
+
+void initMPI(int &argc, char **&argv) {
     int maxRank;
+    int rank;
+    int neighbors[4];
+    int reorder = 0;
+    int dimensions[3] = {4, 4, 4};
+    int periods[3] = {false, false, false};
+    int coordinates[3];
+
+    MPI_Comm gridCommunicator;
+
+    MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &maxRank);
 
-    if (maxRank != processorCount) {
-        printf("Mismatch in proc count between mpi and argument!\n");
-        exit(-1);
+    if (maxRank == SIZE) {
+        MPI_Cart_create(MPI_COMM_WORLD, 3, dimensions, periods, reorder, &gridCommunicator);
+        MPI_Comm_rank(gridCommunicator, &rank);
+        MPI_Cart_coords(gridCommunicator, rank, 3, coordinates);
+        MPI_Cart_shift(gridCommunicator, 0, 1, &neighbors[UP], &neighbors[DOWN]);
+        MPI_Cart_shift(gridCommunicator, 1, 1, &neighbors[LEFT], &neighbors[RIGHT]);
+
+        printf("rank= %d coordinates= %d %d %d  neighbors(u,d,l,r)= %d %d %d %d\n",
+               rank, coordinates[0], coordinates[1], coordinates[2], neighbors[UP], neighbors[DOWN], neighbors[LEFT],
+               neighbors[RIGHT]);
+    } else {
+        printf("Must specify %d processors. Terminating.\n", SIZE);
     }
 
-    #ifdef DEBUG
-    if ((log(maxRank) / log(3) % 1) != 0) {
-        printf("Number of processes does not fit perfectly into cube (remainder not 0)");
-        exit(-1);
-    }
-    #endif
-
-    int pForEachDim = (int)log(maxRank) / log(3);
-    int processPerDim [3]= {pForEachDim, pForEachDim, pForEachDim};
-    int period[3]= {1,1,1};
-
-    //http://www.mpich.org/static/docs/v3.1/www3/MPI_Cart_create.html
-    MPI_Comm newComm;
-    MPI_Cart_create(
-            MPI_COMM_WORLD,
-            /*# of dimensions*/ 3,
-            /*# of proc*/ processPerDim,
-            /*grid is periodic*/ period,
-            /*no reordering*/ 0,
-            /*new comm*/ &newComm);
-
-    #ifdef DEBUG
-    if (3 * pForEachDim != processorCount) {
-        printf("Mismatch in proc count between sum of each proc and total!\n");
-        exit(-1);
-    }
-    #endif
-
-    // Determines the rank of the calling process in the communicator:
-    int rankInDim;
-    MPI_Comm_rank(newComm, &rankInDim);
-
-    // MPI_Cart_sub?
-    // http://www.mpich.org/static/docs/v3.1/www3/MPI_Cart_sub.html
-    // I dont completely understand HOW to use this.
-    // It should give a communicator for all nodes in k, j, i, directions
-    // according to what we want.
-    // Ex this should give for all nodes in j:
-    MPI_Comm commFor_j_Dim;
-    int dimWeWant[3] = {1, 0 ,0};
-    MPI_Cart_sub(
-            /*MPI_Comm comm*/ newComm,
-            /*const int remain_dims[]*/ dimWeWant,
-            /*MPI_Comm *newcomm*/ &commFor_j_Dim
-    );
-
-    #ifdef DEBUG
-    int rank_source, rank_desta, rank_destb, rank_destc;
-    MPI_Cart_shift(newComm, 0,1,&rank_source, &rank_desta);
-    MPI_Cart_shift(newComm, 1,1,&rank_source, &rank_destb);
-    MPI_Cart_shift(newComm, 2,1,&rank_source, &rank_destc);
-    printf("I am known as %i adjacents are -> a:%i and b:%i and c:%i \n",
-           rankInDim, rank_desta, rank_destb, rank_destc);
-    #endif
+    MPI_Finalize();
+    exit(0);
 }
 
 void dns(double *matrixA, double *matrixB) {
-    // Distribute A and B according to DNS algorithm. (hard part)
 
-    // Do the actual multiplication. (find lib to use)
-
-    // Reduce from k dimension to root (dim == 0).
-
-    // Gather from all p to root process.
-
-};
-
-void initMPI(int &argc, char **&argv) {
-    MPI_Init(&argc, &argv);
-    // Not needed:
-    //MPI_Comm_size(MPI_COMM_WORLD, &maxRank);
-    //MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 }

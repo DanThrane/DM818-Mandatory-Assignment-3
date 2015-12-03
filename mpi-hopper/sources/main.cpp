@@ -2,11 +2,21 @@
 #include <math.h>
 #include <unistd.h>
 
+//NOTE: #include <acml.h> //assumes AMD platform
+extern "C" {
+#include <cblas.h> //assumes general CBLAS interface
+}
+
+void squareDgemm(int n, double *A, double *B, double *C) {
+    cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n, 1, A, n, B, n, 1, C, n);
+}
+
+
 void initMPI(int &argc, char **&argv);
 
 void fillMatrices(int matrixDimensions, double *matrixA, double *matrixB);
 
-void dns(double *matrixA, double *matrixB);
+void dns();
 
 void blockAndDistribute(int processorCount, int matrixDimension, double *pDouble, double *matrixB);
 
@@ -23,6 +33,10 @@ int rank;
 int maxRank;
 int coordinates[3];
 MPI_Comm iComm, jComm, kComm, ijComm;
+
+double *receivedMatrixA;
+double *receivedMatrixB;
+int blockLength;
 
 /* Print a header for results output */
 void resultHeader() {
@@ -88,7 +102,7 @@ int main(int argc, char **argv) {
 
     /* Write header */
     if (rank == 0) {
-        resultHeader(); // TODO ? Todo what? Print/append result i guess?
+        resultHeader();
     }
 
     /* Make and allocate matrices */
@@ -100,17 +114,17 @@ int main(int argc, char **argv) {
         fillMatrices(matrixDimensions, matrixA, matrixB);
     }
     blockAndDistribute(processorCount, matrixDimensions, matrixA, matrixB);
-#if false
+
     /* Run each config 10 times */
     for (int k = 0; k < 10; k++) {
         /* Start timer */
-        MPI_Barrier(MPI_COMM_WORLD); // TODO Do we want to sync on all processors?
+        MPI_Barrier(MPI_COMM_WORLD);
         if (rank == 0) {
             startTime = MPI_Wtime();
         }
 
         /* Do work */
-        dns(matrixA, matrixB);
+        dns();
 
         /* End timer */
         MPI_Barrier(MPI_COMM_WORLD);
@@ -124,7 +138,6 @@ int main(int argc, char **argv) {
     /* Destroy matrices */
     free(matrixA);
     free(matrixB);
-#endif
 
     /* Print stats */
     if (rank == 0) {
@@ -147,7 +160,6 @@ int main(int argc, char **argv) {
 }
 
 void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA, double *matrixB) {
-    if (coordinates[2] != 0) return;
 
     double *preparedMatrixA = NULL;
     double *preparedMatrixB = NULL;
@@ -156,84 +168,86 @@ void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA
     int displacements[processorCount];
 
     int length = (int) ceil(cbrt(processorCount));
-    int blockLength = matrixDimension / length;
+    blockLength = matrixDimension / length;
 
-    double *receivedMatrixA = (double *) malloc(sizeof(double) * blockLength * blockLength);
-    double *receivedMatrixB = (double *) malloc(sizeof(double) * blockLength * blockLength);
+    receivedMatrixA = (double *) malloc(sizeof(double) * blockLength * blockLength);
+    receivedMatrixB = (double *) malloc(sizeof(double) * blockLength * blockLength);
 
-    if (rank == 0) {
-        preparedMatrixA = (double *) malloc(sizeof(double) * matrixDimension * matrixDimension);
-        preparedMatrixB = (double *) malloc(sizeof(double) * matrixDimension * matrixDimension);
+    if (coordinates[2] == 0) { // Only perform initial distribution to k = 0
+        if (rank == 0) {
+            preparedMatrixA = (double *) malloc(sizeof(double) * matrixDimension * matrixDimension);
+            preparedMatrixB = (double *) malloc(sizeof(double) * matrixDimension * matrixDimension);
 
-        for (int i = 0; i < length; i++) {
-            for (int j = 0; j < length; j++) {
-                for (int k = 0; k < blockLength; k++) {
-                    // Offset into the prepared matrix
-                    int offsetPreparedA = j * length * (blockLength * blockLength) +
-                                          i * (blockLength * blockLength) +
-                                          k * blockLength;
+            for (int i = 0; i < length; i++) {
+                for (int j = 0; j < length; j++) {
+                    for (int k = 0; k < blockLength; k++) {
+                        // Offset into the prepared matrix
+                        int offsetPreparedA = j * length * (blockLength * blockLength) +
+                                              i * (blockLength * blockLength) +
+                                              k * blockLength;
 
-                    int offsetPreparedB = i * length * (blockLength * blockLength) +
-                                          j * (blockLength * blockLength) +
-                                          k * blockLength;
+                        int offsetPreparedB = i * length * (blockLength * blockLength) +
+                                              j * (blockLength * blockLength) +
+                                              k * blockLength;
 
-                    // The start of the matrix
-                    int offsetMatrix = j * matrixDimension * blockLength +
-                                       i * blockLength +
-                                       k * matrixDimension;
+                        // The start of the matrix
+                        int offsetMatrix = j * matrixDimension * blockLength +
+                                           i * blockLength +
+                                           k * matrixDimension;
 
-                    // Copy them into the prepared matrices
-                    memcpy(&preparedMatrixA[offsetPreparedA], &matrixA[offsetMatrix], sizeof(double) * blockLength);
-                    memcpy(&preparedMatrixB[offsetPreparedB], &matrixB[offsetMatrix], sizeof(double) * blockLength);
+                        // Copy them into the prepared matrices
+                        memcpy(&preparedMatrixA[offsetPreparedA], &matrixA[offsetMatrix], sizeof(double) * blockLength);
+                        memcpy(&preparedMatrixB[offsetPreparedB], &matrixB[offsetMatrix], sizeof(double) * blockLength);
+                    }
                 }
             }
         }
-    }
 
-    for (int i = 0; i < processorCount; i++) {
-        sendCount[i] = blockLength * blockLength;
-        displacements[i] = i * blockLength * blockLength;
-    }
+        for (int i = 0; i < processorCount; i++) {
+            sendCount[i] = blockLength * blockLength;
+            displacements[i] = i * blockLength * blockLength;
+        }
 
-    MPI_Scatterv(preparedMatrixA, sendCount, displacements, MPI_DOUBLE, receivedMatrixA, blockLength * blockLength,
-                 MPI_DOUBLE, 0, ijComm);
-    MPI_Scatterv(preparedMatrixB, sendCount, displacements, MPI_DOUBLE, receivedMatrixB, blockLength * blockLength,
-                 MPI_DOUBLE, 0, ijComm);
+        MPI_Scatterv(preparedMatrixA, sendCount, displacements, MPI_DOUBLE, receivedMatrixA, blockLength * blockLength,
+                     MPI_DOUBLE, 0, ijComm);
+        MPI_Scatterv(preparedMatrixB, sendCount, displacements, MPI_DOUBLE, receivedMatrixB, blockLength * blockLength,
+                     MPI_DOUBLE, 0, ijComm);
 
 #ifdef DEBUG
-    MPI_Barrier(ijComm);
-    if (rank == 0) {
-        for (int i = 0; i < matrixDimension * matrixDimension; i++) {
-            if (i % matrixDimension == 0) {
-                printf("\n");
-            }
-            printf("%.2f\t", matrixA[i]);
-        }
-        printf("\n");
-        printf("----------------------------------------------\n");
-    }
-
-    int commRank;
-    MPI_Comm_rank(ijComm, &commRank);
-
-    for (int iwant = 0; iwant < 16; iwant++) {
         MPI_Barrier(ijComm);
-        if (commRank == iwant) {
-            printf("FOR RANK: %d", iwant);
-            for (int i = 0; i < blockLength * blockLength; i++) {
-                if (i % blockLength == 0) {
+        if (rank == 0) {
+            for (int i = 0; i < matrixDimension * matrixDimension; i++) {
+                if (i % matrixDimension == 0) {
                     printf("\n");
                 }
-                printf("%.2f\t", receivedMatrixA[i]);
+                printf("%.2f\t", matrixA[i]);
             }
             printf("\n");
+            printf("----------------------------------------------\n");
         }
-    }
+
+        int commRank;
+        MPI_Comm_rank(ijComm, &commRank);
+
+        for (int iwant = 0; iwant < 16; iwant++) {
+            MPI_Barrier(ijComm);
+            if (commRank == iwant) {
+                printf("FOR RANK: %d", iwant);
+                for (int i = 0; i < blockLength * blockLength; i++) {
+                    if (i % blockLength == 0) {
+                        printf("\n");
+                    }
+                    printf("%.2f\t", receivedMatrixA[i]);
+                }
+                printf("\n");
+            }
+        }
 #endif
 
-    if (rank == 0) {
-        free(preparedMatrixA);
-        free(preparedMatrixB);
+        if (rank == 0) {
+            free(preparedMatrixA);
+            free(preparedMatrixB);
+        }
     }
 }
 
@@ -270,7 +284,42 @@ void initMPI(int &argc, char **&argv) {
     printf("rank= %d coordinates= %d %d %d\n", rank, coordinates[0], coordinates[1], coordinates[2]);
 }
 
-void dns(double *matrixA, double *matrixB) {
+/**
+ * Step B
+ */
+void distribute() {
+    // Distribute matrix A
+    if (coordinates[2] == 0) {
+        MPI_Send(receivedMatrixA, blockLength * blockLength, MPI_DOUBLE, coordinates[1], 0, kComm);
+    } else if (coordinates[1] == coordinates[2]) {
+        MPI_Recv(receivedMatrixA, blockLength * blockLength, MPI_DOUBLE, 0, 0, kComm, NULL);
+    } /* else do nothing */
+
+    if (coordinates[2] == 0) {
+        MPI_Send(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, coordinates[0], 0, kComm);
+    } else if (coordinates[0] == coordinates[2]) {
+        MPI_Recv(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, 0, 0, kComm, NULL);
+    } /* else do nothing */
+}
+
+/**
+ * Step C
+ */
+void broadcast() {
+    MPI_Bcast(receivedMatrixA, blockLength * blockLength, MPI_DOUBLE, 0, jComm);
+    MPI_Bcast(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, 0, iComm);
+}
+
+void multiply(int matrixDimension) {
+    double *matrixC = (double *) malloc(sizeof(double) * blockLength * blockLength);
+    squareDgemm(matrixDimension, receivedMatrixA, receivedMatrixB, matrixC);
+}
+
+void reduction() {
+
+}
+
+void dns() {
 
 }
 

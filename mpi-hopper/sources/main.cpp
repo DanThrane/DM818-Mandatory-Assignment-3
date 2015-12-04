@@ -116,22 +116,29 @@ int main(int argc, char **argv) {
     /* Make and allocate matrices */
     double *matrixA = NULL;
     double *matrixB = NULL;
-    if (rank == 0) {
-        matrixA = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
-        matrixB = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
-        fillMatrices(matrixDimensions, matrixA, matrixB);
-    }
-    blockAndDistribute(processorCount, matrixDimensions, matrixA, matrixB);
-    if (coordinates[2] == 0) {
-        resultMatrix = (double *) malloc(sizeof(double) * blockLength * blockLength);
-    }
-
-    MPI_Barrier(MPI_COMM_WORLD);
 
     /* Do work */
-    dns();
-#if true
-    if (coordinates[2] == 0) {
+    for (int k = 0; k < 10; k++) {
+        if (rank == 0) {
+            matrixA = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
+            matrixB = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
+            fillMatrices(matrixDimensions, matrixA, matrixB);
+        }
+        blockAndDistribute(processorCount, matrixDimensions, matrixA, matrixB);
+        if (coordinates[2] == 0) {
+            resultMatrix = (double *) malloc(sizeof(double) * blockLength * blockLength);
+        }
+
+        /* Start timer */
+        MPI_Barrier(MPI_COMM_WORLD);
+        if (rank == 0) {
+            startTime = MPI_Wtime();
+        }
+
+        /* Do work */
+        dns();
+#if false
+        if (coordinates[2] == 0) {
         int localRank;
         MPI_Barrier(ijComm);
         MPI_Comm_rank(ijComm, &localRank);
@@ -149,10 +156,18 @@ int main(int argc, char **argv) {
         }
     }
 #endif
-    /* Destroy matrices */
-    if (rank == 0) {
-        free(matrixA);
-        free(matrixB);
+
+        /* End timer */
+        MPI_Barrier(MPI_COMM_WORLD);
+        if (rank == 0) {
+            endTime = MPI_Wtime();
+            times[k] = endTime - startTime;
+
+            /* Reset matrices */
+            free(matrixA);
+            free(matrixB);
+            free(resultMatrix);
+        }
     }
 
     /* Print stats */
@@ -308,8 +323,6 @@ void initMPI(int &argc, char **&argv) {
     MPI_Cart_sub(gridCommunicator, jDimensions, &jComm);
     MPI_Cart_sub(gridCommunicator, kDimensions, &kComm);
     MPI_Cart_sub(gridCommunicator, ijDimensions, &ijComm);
-
-    printf("rank= %d coordinates= %d %d %d\n", rank, coordinates[0], coordinates[1], coordinates[2]);
 
     MPI_Op_create(sumMatrices, true, &matrixSum);
 }

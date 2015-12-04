@@ -32,6 +32,7 @@ double *receivedMatrixB;
 double *resultMatrix;
 int blockLength;
 MPI_Op matrixSum;
+MPI_Status discard;
 
 void squareDgemm(int n, double *A, double *B, double *C) {
     for (int i = 0; i < n; i++) {
@@ -317,13 +318,13 @@ void distribute() {
     if (coordinates[2] == 0) {
         MPI_Send(receivedMatrixA, blockLength * blockLength, MPI_DOUBLE, coordinates[1], 0, kComm);
     } else if (coordinates[1] == coordinates[2]) {
-        MPI_Recv(receivedMatrixA, blockLength * blockLength, MPI_DOUBLE, 0, 0, kComm, NULL);
+        MPI_Recv(receivedMatrixA, blockLength * blockLength, MPI_DOUBLE, 0, 0, kComm, &discard);
     } /* else do nothing */
 
     if (coordinates[2] == 0) {
         MPI_Send(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, coordinates[0], 0, kComm);
     } else if (coordinates[0] == coordinates[2]) {
-        MPI_Recv(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, 0, 0, kComm, NULL);
+        MPI_Recv(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, 0, 0, kComm, &discard);
     } /* else do nothing */
 }
 

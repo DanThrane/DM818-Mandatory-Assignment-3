@@ -120,13 +120,44 @@ Programming was done only using pair programming, and as such an equal contribut
 \chapter{Implementation}
 \section{Design choices}
 %A description of the design choices that you tried and how they affected the performance.
+No specific design choices has been made. The implementation consists of two phases:
+\begin{itemize}
+\item Create virtual topology using MPI.
+\item Follow the DNS algorithm.
+\end{itemize}
 
+Creating the virtual topology is a rather simple task, when a good understanding of how MPI works, and thus little to no design choices will be needed. 
+
+Implementation of the DNS algorithm left no room for design choices, as it was simply a matter of following the algorithm presented in the course.
 
 \section{Virtual topologies}
 %A description of how you used virtual topologies.
+The communication pattern of a set of processes can be represented by a graph. The nodes in this graph is represented by processes and the edges between them is the processes communication between each other. MPI provides message-passing between any pair of processes in a group, often represented in a Communicator.
 
+MPI offers built-in methods such as \verb!MPI_Graph_create! and \verb!MPI_Cart_create!. The latter offers the possibility to describe Cartesian structures in more than two dimensions.
+
+The virtual topology was created in MPI using \verb!MPI_Cart_create!, this method takes the following parameters:
+\begin{itemize}
+\item MPI Communicator to which the Cartesian topology information is attached.
+\item Number of dimensions.
+\item Number of processes for each dimension.
+\item Whether the dimensions are periodic.
+\item Whether ranking may be reordered, if false the rank from the old communicator is retained.
+\end{itemize}
+and outputs a new communicator for the Cartesian topology. This is used to create a 3-dimension hypercube.
+
+In order to communicator between the processes in this hybercube, we can create additional Communicators using \verb!MPI_Cart_sub!, specifying which dimensions we want our new communicator to attach to processes in.
+
+As an example the following line specifies that we want all processes in the i'th axis in the new communicator \verb!iComm!.
+
+\begin{verbatim}
+int iDimensions[3] = {1, 0, 0};
+MPI_Cart_sub(gridCommunicator, iDimensions, &iComm);
+\end{verbatim}
 
 \section{Matrix not divisible by $p^{1/3}$}
+PADDING! TODO THIS SECTION!
+
 \chapter{Performance}
 \section{Runtimes}
 %In your report, all runtimes and measures that depend on runtimes, should be based on average 

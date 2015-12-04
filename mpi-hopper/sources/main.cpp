@@ -1,5 +1,7 @@
+#include <stdlib.h>
 #include <mpi.h>
 #include <math.h>
+#include <string.h>
 #include <unistd.h>
 
 void initMPI(int &argc, char **&argv);
@@ -30,6 +32,7 @@ double *receivedMatrixB;
 double *resultMatrix;
 int blockLength;
 MPI_Op matrixSum;
+MPI_Status discard;
 
 void squareDgemm(int n, double *A, double *B, double *C) {
     for (int i = 0; i < n; i++) {
@@ -80,26 +83,6 @@ double average(int count, double *list, double *dev) {
 }
 
 int main(int argc, char **argv) {
-    /* Launch MPI, if we we're launching from the command line */
-    if (getenv("OMPI_COMM_WORLD_RANK") == NULL) {
-        // TODO I don't think this will work on hopper. We should look into how this is really done.
-        if (argc == 3) {
-            char **args = (char **) calloc(6, sizeof(char *));
-            args[0] = (char *) "mpirun";
-            args[1] = (char *) "-np";
-            args[2] = argv[1]; // Number of processors
-            args[3] = (char *) "dnsmat";
-            args[4] = argv[1]; // Number of processors
-            args[5] = argv[2]; // Matrix dimensions
-            execvp("mpirun", args);
-            exit(0);
-        }
-        else {
-            printf("Wrong number of parameters\n");
-            exit(-1);
-        }
-    }
-
     int processorCount = atoi(argv[1]);
     int matrixDimensions = atoi(argv[2]);
     initMPI(argc, argv);
@@ -332,16 +315,16 @@ void initMPI(int &argc, char **&argv) {
  */
 void distribute() {
     // Distribute matrix A
-    if (coordinates[2] == 0) {
+    if (coordinates[1] == coordinates[2]) {
+        MPI_Recv(receivedMatrixA, blockLength * blockLength, MPI_DOUBLE, 0, 0, kComm, &discard);
+    } else if (coordinates[2] == 0) {
         MPI_Send(receivedMatrixA, blockLength * blockLength, MPI_DOUBLE, coordinates[1], 0, kComm);
-    } else if (coordinates[1] == coordinates[2]) {
-        MPI_Recv(receivedMatrixA, blockLength * blockLength, MPI_DOUBLE, 0, 0, kComm, NULL);
     } /* else do nothing */
 
-    if (coordinates[2] == 0) {
+    if (coordinates[0] == coordinates[2]) {
+        MPI_Recv(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, 0, 0, kComm, &discard);
+    } else if (coordinates[2] == 0) {
         MPI_Send(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, coordinates[0], 0, kComm);
-    } else if (coordinates[0] == coordinates[2]) {
-        MPI_Recv(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, 0, 0, kComm, NULL);
     } /* else do nothing */
 }
 

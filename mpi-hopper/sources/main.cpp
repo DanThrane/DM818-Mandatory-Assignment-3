@@ -2,18 +2,6 @@
 #include <math.h>
 #include <unistd.h>
 
-void squareDgemm(int n, double *A, double *B, double *C) {
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            double cij = C[i + j * n];
-            for (int k = 0; k < n; k++) {
-                cij += A[i + k * n] * B[k + j * n];
-            }
-            C[i + j * n] = cij;
-        }
-    }
-}
-
 void initMPI(int &argc, char **&argv);
 
 void fillMatrices(int matrixDimensions, double *matrixA, double *matrixB);
@@ -33,14 +21,30 @@ int rank;
  * The maximum rank (this is the total number of processors in the system)
  */
 int maxRank;
+
 int coordinates[3];
 MPI_Comm iComm, jComm, kComm, ijComm;
-
 double *receivedMatrixA;
+
 double *receivedMatrixB;
 double *resultMatrix;
 int blockLength;
 MPI_Op matrixSum;
+
+void squareDgemm(int n, double *A, double *B, double *C) {
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            double cij = C[i + j * n];
+            for (int k = 0; k < n; k++) {
+                cij += A[i + k * n] * B[k + j * n];
+#if false
+                if (rank == 0) printf("%.2f * %.2f\n", A[i + k * n], B[k + j * n]);
+#endif
+            }
+            C[i + j * n] = cij;
+        }
+    }
+}
 
 /* Print a header for results output */
 void resultHeader() {
@@ -112,35 +116,58 @@ int main(int argc, char **argv) {
     /* Make and allocate matrices */
     double *matrixA = NULL;
     double *matrixB = NULL;
-    if (rank == 0) {
-        matrixA = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
-        matrixB = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
-        fillMatrices(matrixDimensions, matrixA, matrixB);
-    }
-    blockAndDistribute(processorCount, matrixDimensions, matrixA, matrixB);
-    if (coordinates[2] == 0) {
-        resultMatrix = (double *) malloc(sizeof(double) * blockLength * blockLength);
-    }
-
-    MPI_Barrier(MPI_COMM_WORLD);
 
     /* Do work */
-    dns();
-/*
-    if (coordinates[2] == 0) {
-        printf("For (%d, %d)", coordinates[0], coordinates[1]);
-        for (int i = 0; i < blockLength * blockLength; i++) {
-            if (i % blockLength == 0) {
-                printf("\n");
+    for (int k = 0; k < 10; k++) {
+        if (rank == 0) {
+            matrixA = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
+            matrixB = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
+            fillMatrices(matrixDimensions, matrixA, matrixB);
+        }
+        blockAndDistribute(processorCount, matrixDimensions, matrixA, matrixB);
+        if (coordinates[2] == 0) {
+            resultMatrix = (double *) malloc(sizeof(double) * blockLength * blockLength);
+        }
+
+        /* Start timer */
+        MPI_Barrier(MPI_COMM_WORLD);
+        if (rank == 0) {
+            startTime = MPI_Wtime();
+        }
+
+        /* Do work */
+        dns();
+#if false
+        if (coordinates[2] == 0) {
+        int localRank;
+        MPI_Barrier(ijComm);
+        MPI_Comm_rank(ijComm, &localRank);
+        for (int iwant = 0; iwant < 16; iwant++) {
+            if (iwant == localRank) {
+                printf("For (%d, %d)", coordinates[0], coordinates[1]);
+                for (int i = 0; i < blockLength * blockLength; i++) {
+                    if (i % blockLength == 0) {
+                        printf("\n");
+                    }
+                    printf("%.2f\t", resultMatrix[i]);
+                }
             }
-            printf("%.2f\t", resultMatrix[i]);
+            MPI_Barrier(ijComm);
         }
     }
-*/
-    /* Destroy matrices */
-    if (rank == 0) {
-        free(matrixA);
-        free(matrixB);
+#endif
+
+        /* End timer */
+        MPI_Barrier(MPI_COMM_WORLD);
+        if (rank == 0) {
+            endTime = MPI_Wtime();
+            times[k] = endTime - startTime;
+
+            /* Reset matrices */
+            free(matrixA);
+            free(matrixB);
+            free(resultMatrix);
+        }
     }
 
     /* Print stats */
@@ -164,7 +191,6 @@ int main(int argc, char **argv) {
 }
 
 void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA, double *matrixB) {
-
     double *preparedMatrixA = NULL;
     double *preparedMatrixB = NULL;
 
@@ -186,8 +212,8 @@ void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA
                 for (int j = 0; j < length; j++) {
                     for (int k = 0; k < blockLength; k++) {
                         // Offset into the prepared matrix
-                        int offsetPreparedA = j * length * (blockLength * blockLength) +
-                                              i * (blockLength * blockLength) +
+                        int offsetPreparedA = i * length * (blockLength * blockLength) +
+                                              j * (blockLength * blockLength) +
                                               k * blockLength;
 
                         int offsetPreparedB = i * length * (blockLength * blockLength) +
@@ -220,7 +246,7 @@ void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA
         MPI_Scatterv(preparedMatrixB, sendCount, displacements, MPI_DOUBLE, receivedMatrixB,
                      blockLength * blockLength,
                      MPI_DOUBLE, 0, ijComm);
-#ifdef DEBUG
+#if false
         MPI_Barrier(ijComm);
         if (rank == 0) {
             for (int i = 0; i < matrixDimension * matrixDimension; i++) {
@@ -239,12 +265,12 @@ void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA
         for (int iwant = 0; iwant < 16; iwant++) {
             MPI_Barrier(ijComm);
             if (commRank == iwant) {
-                printf("FOR RANK: %d", iwant);
+                printf("FOR RANK: (%d, %d, %d)", coordinates[0], coordinates[1], coordinates[2]);
                 for (int i = 0; i < blockLength * blockLength; i++) {
                     if (i % blockLength == 0) {
                         printf("\n");
                     }
-                    printf("%.2f\t", receivedMatrixA[i]);
+                    printf("%.2f\t", receivedMatrixB[i]);
                 }
                 printf("\n");
             }
@@ -298,8 +324,6 @@ void initMPI(int &argc, char **&argv) {
     MPI_Cart_sub(gridCommunicator, kDimensions, &kComm);
     MPI_Cart_sub(gridCommunicator, ijDimensions, &ijComm);
 
-    printf("rank= %d coordinates= %d %d %d\n", rank, coordinates[0], coordinates[1], coordinates[2]);
-
     MPI_Op_create(sumMatrices, true, &matrixSum);
 }
 
@@ -325,8 +349,8 @@ void distribute() {
  * Step C
  */
 void broadcast() {
-    MPI_Bcast(receivedMatrixA, blockLength * blockLength, MPI_DOUBLE, coordinates[0], jComm);
-    MPI_Bcast(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, coordinates[1], iComm);
+    MPI_Bcast(receivedMatrixA, blockLength * blockLength, MPI_DOUBLE, coordinates[2], jComm);
+    MPI_Bcast(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, coordinates[2], iComm);
 }
 
 void reduction(double *matrixC) {
@@ -342,10 +366,8 @@ void multiplyAndReduce() {
 
 void dns() {
     distribute();
-
-//    printf("(%d, %d, %d) %.2f\n", coordinates[0], coordinates[1], coordinates[2], receivedMatrixA[0]);
     broadcast();
-#if true
+#if false
     if (coordinates[2] == 1) {
         int commRank;
         MPI_Comm_rank(ijComm, &commRank);
@@ -353,19 +375,18 @@ void dns() {
         for (int iwant = 0; iwant < 16; iwant++) {
             MPI_Barrier(ijComm);
             if (commRank == iwant) {
-                printf("FOR RANK: %d", iwant);
+                printf("FOR RANK: (%d, %d)", coordinates[0], coordinates[1]);
                 for (int i = 0; i < blockLength * blockLength; i++) {
                     if (i % blockLength == 0) {
                         printf("\n");
                     }
-                    printf("%.2f\t", receivedMatrixA[i]);
+                    printf("%.2f\t", receivedMatrixB[i]);
                 }
                 printf("\n");
             }
         }
     }
 #endif
-//    printf("(%d, %d, %d) %.2f\n", coordinates[0], coordinates[1], coordinates[2], receivedMatrixA[0]);
     multiplyAndReduce();
 }
 

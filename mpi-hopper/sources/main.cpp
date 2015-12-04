@@ -82,26 +82,6 @@ double average(int count, double *list, double *dev) {
 }
 
 int main(int argc, char **argv) {
-    /* Launch MPI, if we we're launching from the command line */
-    if (getenv("OMPI_COMM_WORLD_RANK") == NULL) {
-        // TODO I don't think this will work on hopper. We should look into how this is really done.
-        if (argc == 3) {
-            char **args = (char **) calloc(6, sizeof(char *));
-            args[0] = (char *) "mpirun";
-            args[1] = (char *) "-np";
-            args[2] = argv[1]; // Number of processors
-            args[3] = (char *) "dnsmat";
-            args[4] = argv[1]; // Number of processors
-            args[5] = argv[2]; // Matrix dimensions
-            execvp("mpirun", args);
-            exit(0);
-        }
-        else {
-            printf("Wrong number of parameters\n");
-            exit(-1);
-        }
-    }
-
     int processorCount = atoi(argv[1]);
     int matrixDimensions = atoi(argv[2]);
     initMPI(argc, argv);

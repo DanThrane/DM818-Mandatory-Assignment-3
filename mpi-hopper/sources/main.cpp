@@ -2,18 +2,6 @@
 #include <math.h>
 #include <unistd.h>
 
-void squareDgemm(int n, double *A, double *B, double *C) {
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            double cij = C[i + j * n];
-            for (int k = 0; k < n; k++) {
-                cij += A[i + k * n] * B[k + j * n];
-            }
-            C[i + j * n] = cij;
-        }
-    }
-}
-
 void initMPI(int &argc, char **&argv);
 
 void fillMatrices(int matrixDimensions, double *matrixA, double *matrixB);
@@ -33,14 +21,30 @@ int rank;
  * The maximum rank (this is the total number of processors in the system)
  */
 int maxRank;
+
 int coordinates[3];
 MPI_Comm iComm, jComm, kComm, ijComm;
-
 double *receivedMatrixA;
+
 double *receivedMatrixB;
 double *resultMatrix;
 int blockLength;
 MPI_Op matrixSum;
+
+void squareDgemm(int n, double *A, double *B, double *C) {
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            double cij = C[i + j * n];
+            for (int k = 0; k < n; k++) {
+                cij += A[i + k * n] * B[k + j * n];
+#if false
+                if (rank == 0) printf("%.2f * %.2f\n", A[i + k * n], B[k + j * n]);
+#endif
+            }
+            C[i + j * n] = cij;
+        }
+    }
+}
 
 /* Print a header for results output */
 void resultHeader() {
@@ -126,17 +130,25 @@ int main(int argc, char **argv) {
 
     /* Do work */
     dns();
-/*
+#if true
     if (coordinates[2] == 0) {
-        printf("For (%d, %d)", coordinates[0], coordinates[1]);
-        for (int i = 0; i < blockLength * blockLength; i++) {
-            if (i % blockLength == 0) {
-                printf("\n");
+        int localRank;
+        MPI_Barrier(ijComm);
+        MPI_Comm_rank(ijComm, &localRank);
+        for (int iwant = 0; iwant < 16; iwant++) {
+            if (iwant == localRank) {
+                printf("For (%d, %d)", coordinates[0], coordinates[1]);
+                for (int i = 0; i < blockLength * blockLength; i++) {
+                    if (i % blockLength == 0) {
+                        printf("\n");
+                    }
+                    printf("%.2f\t", resultMatrix[i]);
+                }
             }
-            printf("%.2f\t", resultMatrix[i]);
+            MPI_Barrier(ijComm);
         }
     }
-*/
+#endif
     /* Destroy matrices */
     if (rank == 0) {
         free(matrixA);
@@ -164,7 +176,6 @@ int main(int argc, char **argv) {
 }
 
 void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA, double *matrixB) {
-
     double *preparedMatrixA = NULL;
     double *preparedMatrixB = NULL;
 
@@ -190,8 +201,8 @@ void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA
                                               j * (blockLength * blockLength) +
                                               k * blockLength;
 
-                        int offsetPreparedB = j * length * (blockLength * blockLength) +
-                                              i * (blockLength * blockLength) +
+                        int offsetPreparedB = i * length * (blockLength * blockLength) +
+                                              j * (blockLength * blockLength) +
                                               k * blockLength;
 
                         // The start of the matrix
@@ -220,7 +231,7 @@ void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA
         MPI_Scatterv(preparedMatrixB, sendCount, displacements, MPI_DOUBLE, receivedMatrixB,
                      blockLength * blockLength,
                      MPI_DOUBLE, 0, ijComm);
-#ifdef DEBUG
+#if false
         MPI_Barrier(ijComm);
         if (rank == 0) {
             for (int i = 0; i < matrixDimension * matrixDimension; i++) {
@@ -244,7 +255,7 @@ void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA
                     if (i % blockLength == 0) {
                         printf("\n");
                     }
-                    printf("%.2f\t", receivedMatrixA[i]);
+                    printf("%.2f\t", receivedMatrixB[i]);
                 }
                 printf("\n");
             }
@@ -342,10 +353,8 @@ void multiplyAndReduce() {
 
 void dns() {
     distribute();
-
-//    printf("(%d, %d, %d) %.2f\n", coordinates[0], coordinates[1], coordinates[2], receivedMatrixA[0]);
     broadcast();
-#if true
+#if false
     if (coordinates[2] == 1) {
         int commRank;
         MPI_Comm_rank(ijComm, &commRank);
@@ -365,7 +374,6 @@ void dns() {
         }
     }
 #endif
-//    printf("(%d, %d, %d) %.2f\n", coordinates[0], coordinates[1], coordinates[2], receivedMatrixA[0]);
     multiplyAndReduce();
 }
 

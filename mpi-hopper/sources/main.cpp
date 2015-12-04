@@ -186,12 +186,12 @@ void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA
                 for (int j = 0; j < length; j++) {
                     for (int k = 0; k < blockLength; k++) {
                         // Offset into the prepared matrix
-                        int offsetPreparedA = j * length * (blockLength * blockLength) +
-                                              i * (blockLength * blockLength) +
+                        int offsetPreparedA = i * length * (blockLength * blockLength) +
+                                              j * (blockLength * blockLength) +
                                               k * blockLength;
 
-                        int offsetPreparedB = i * length * (blockLength * blockLength) +
-                                              j * (blockLength * blockLength) +
+                        int offsetPreparedB = j * length * (blockLength * blockLength) +
+                                              i * (blockLength * blockLength) +
                                               k * blockLength;
 
                         // The start of the matrix
@@ -239,7 +239,7 @@ void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA
         for (int iwant = 0; iwant < 16; iwant++) {
             MPI_Barrier(ijComm);
             if (commRank == iwant) {
-                printf("FOR RANK: %d", iwant);
+                printf("FOR RANK: (%d, %d, %d)", coordinates[0], coordinates[1], coordinates[2]);
                 for (int i = 0; i < blockLength * blockLength; i++) {
                     if (i % blockLength == 0) {
                         printf("\n");
@@ -325,8 +325,8 @@ void distribute() {
  * Step C
  */
 void broadcast() {
-    MPI_Bcast(receivedMatrixA, blockLength * blockLength, MPI_DOUBLE, coordinates[0], jComm);
-    MPI_Bcast(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, coordinates[1], iComm);
+    MPI_Bcast(receivedMatrixA, blockLength * blockLength, MPI_DOUBLE, coordinates[2], jComm);
+    MPI_Bcast(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, coordinates[2], iComm);
 }
 
 void reduction(double *matrixC) {
@@ -353,12 +353,12 @@ void dns() {
         for (int iwant = 0; iwant < 16; iwant++) {
             MPI_Barrier(ijComm);
             if (commRank == iwant) {
-                printf("FOR RANK: %d", iwant);
+                printf("FOR RANK: (%d, %d)", coordinates[0], coordinates[1]);
                 for (int i = 0; i < blockLength * blockLength; i++) {
                     if (i % blockLength == 0) {
                         printf("\n");
                     }
-                    printf("%.2f\t", receivedMatrixA[i]);
+                    printf("%.2f\t", receivedMatrixB[i]);
                 }
                 printf("\n");
             }

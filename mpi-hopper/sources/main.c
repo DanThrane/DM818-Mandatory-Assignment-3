@@ -1,11 +1,14 @@
 #include <stdlib.h>
 #include <mpi.h>
-#include <math.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <stdbool.h>
+#include <math.h>
+
 #include "matrix_mul.h"
 
-void initMPI(int &argc, char **&argv);
+void initMPI(int argc, char **argv);
 
 void fillMatrices(int matrixDimensions, double *matrixA, double *matrixB);
 
@@ -261,7 +264,7 @@ void fillMatrices(int matrixDimensions, double *matrixA, double *matrixB) {
     }
 }
 
-void initMPI(int &argc, char **&argv) {
+void initMPI(int argc, char **argv) {
     MPI_Comm gridCommunicator;
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &maxRank);

@@ -3,6 +3,7 @@
 #include <math.h>
 #include <string.h>
 #include <unistd.h>
+#include "matrix_mul.h"
 
 void initMPI(int &argc, char **&argv);
 
@@ -32,21 +33,6 @@ double *receivedMatrixB;
 double *resultMatrix;
 int blockLength;
 MPI_Op matrixSum;
-
-void squareDgemm(int n, double *A, double *B, double *C) {
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            double cij = C[i + j * n];
-            for (int k = 0; k < n; k++) {
-                cij += A[i + k * n] * B[k + j * n];
-#if false
-                if (rank == 0) printf("%.2f * %.2f\n", A[i + k * n], B[k + j * n]);
-#endif
-            }
-            C[i + j * n] = cij;
-        }
-    }
-}
 
 /* Print a header for results output */
 void resultHeader() {
@@ -100,7 +86,7 @@ int main(int argc, char **argv) {
     double *matrixB = NULL;
 
     /* Do work */
-    for (int k = 0; k < 1; k++) {
+    for (int k = 0; k < 10; k++) {
         if (rank == 0) {
             matrixA = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
             matrixB = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);

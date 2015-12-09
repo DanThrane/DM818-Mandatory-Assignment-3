@@ -8,7 +8,7 @@ CFLAGS = -O3
 LIBS = 
 
 dnsmat: main.o
-	$(CC) $(CFLAGS) -o dnsmat main.o $(LIBS)
+	$(CC) $(CFLAGS) -o dnsmat main.o matrix_mul_hopper.o $(LIBS)
 
 %.o: %.cpp
 	$(CC) -c $(CFLAGS) $<

@@ -3,7 +3,7 @@ project(dm818_dns)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
-set(SOURCE_FILES comm.cpp comm.h main.cpp matrix.cpp matrix.h)
+set(SOURCE_FILES comm.cpp comm.h main.cpp matrix.cpp matrix.h matrix_mul_imada.cpp matrix_mul.h)
 
 find_package(MPI REQUIRED)
 include_directories(${MPI_INCLUDE_PATH})

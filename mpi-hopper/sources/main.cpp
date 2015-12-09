@@ -315,16 +315,17 @@ void initMPI(int &argc, char **&argv) {
  */
 void distribute() {
     // Distribute matrix A
-    if (coordinates[1] == coordinates[2]) {
-        MPI_Recv(receivedMatrixA, blockLength * blockLength, MPI_DOUBLE, 0, 0, kComm, &discard);
-    } else if (coordinates[2] == 0) {
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (coordinates[2] == 0) {
         MPI_Send(receivedMatrixA, blockLength * blockLength, MPI_DOUBLE, coordinates[1], 0, kComm);
+    } else if (coordinates[1] == coordinates[2]) {
+        MPI_Recv(receivedMatrixA, blockLength * blockLength, MPI_DOUBLE, 0, 0, kComm, &discard);
     } /* else do nothing */
 
-    if (coordinates[0] == coordinates[2]) {
-        MPI_Recv(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, 0, 0, kComm, &discard);
-    } else if (coordinates[2] == 0) {
+    if (coordinates[2] == 0) {
         MPI_Send(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, coordinates[0], 0, kComm);
+    } else if (coordinates[0] == coordinates[2]) {
+        MPI_Recv(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, 0, 0, kComm, &discard);
     } /* else do nothing */
 }
 

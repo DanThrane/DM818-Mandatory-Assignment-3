@@ -32,7 +32,6 @@ double *receivedMatrixB;
 double *resultMatrix;
 int blockLength;
 MPI_Op matrixSum;
-MPI_Status discard;
 
 void squareDgemm(int n, double *A, double *B, double *C) {
     for (int i = 0; i < n; i++) {
@@ -195,13 +194,9 @@ void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA
                 for (int j = 0; j < length; j++) {
                     for (int k = 0; k < blockLength; k++) {
                         // Offset into the prepared matrix
-                        int offsetPreparedA = i * length * (blockLength * blockLength) +
-                                              j * (blockLength * blockLength) +
-                                              k * blockLength;
-
-                        int offsetPreparedB = i * length * (blockLength * blockLength) +
-                                              j * (blockLength * blockLength) +
-                                              k * blockLength;
+                        int offsetPrepared = i * length * (blockLength * blockLength) +
+                                             j * (blockLength * blockLength) +
+                                             k * blockLength;
 
                         // The start of the matrix
                         int offsetMatrix = j * matrixDimension * blockLength +
@@ -209,10 +204,8 @@ void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA
                                            k * matrixDimension;
 
                         // Copy them into the prepared matrices
-                        memcpy(&preparedMatrixA[offsetPreparedA], &matrixA[offsetMatrix],
-                               sizeof(double) * blockLength);
-                        memcpy(&preparedMatrixB[offsetPreparedB], &matrixB[offsetMatrix],
-                               sizeof(double) * blockLength);
+                        memcpy(&preparedMatrixA[offsetPrepared], &matrixA[offsetMatrix], sizeof(double) * blockLength);
+                        memcpy(&preparedMatrixB[offsetPrepared], &matrixB[offsetMatrix], sizeof(double) * blockLength);
                     }
                 }
             }
@@ -224,11 +217,9 @@ void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA
         }
 
         MPI_Scatterv(preparedMatrixA, sendCount, displacements, MPI_DOUBLE, receivedMatrixA,
-                     blockLength * blockLength,
-                     MPI_DOUBLE, 0, ijComm);
+                     blockLength * blockLength, MPI_DOUBLE, 0, ijComm);
         MPI_Scatterv(preparedMatrixB, sendCount, displacements, MPI_DOUBLE, receivedMatrixB,
-                     blockLength * blockLength,
-                     MPI_DOUBLE, 0, ijComm);
+                     blockLength * blockLength, MPI_DOUBLE, 0, ijComm);
 #if false
         MPI_Barrier(ijComm);
         if (rank == 0) {
@@ -315,22 +306,16 @@ void initMPI(int &argc, char **&argv) {
  */
 void distribute() {
     // Distribute matrix A
-    MPI_Barrier(MPI_COMM_WORLD);
     if (coordinates[2] == 0 && coordinates[1] != 0) {
-        //printf("Send (%d, %d, %d) -> %d\n", coordinates[0], coordinates[1], coordinates[2], coordinates[1]);
         MPI_Send(receivedMatrixA, blockLength * blockLength, MPI_DOUBLE, coordinates[1], 0, kComm);
     } else if (coordinates[1] == coordinates[2] && coordinates[1] != 0) {
-        //printf("Recv (%d, %d, %d)\n", coordinates[0], coordinates[1], coordinates[2]);
-        MPI_Recv(receivedMatrixA, blockLength * blockLength, MPI_DOUBLE, 0, 0, kComm, &discard);
+        MPI_Recv(receivedMatrixA, blockLength * blockLength, MPI_DOUBLE, 0, 0, kComm, MPI_STATUS_IGNORE);
     } /* else do nothing */
 
-    MPI_Barrier(MPI_COMM_WORLD);
     if (coordinates[2] == 0 && coordinates[0] != 0) {
-        //printf("Send (%d, %d, %d) -> %d\n", coordinates[0], coordinates[1], coordinates[2], coordinates[0]);
         MPI_Send(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, coordinates[0], 0, kComm);
     } else if (coordinates[0] == coordinates[2] && coordinates[2] != 0) {
-        //printf("Recv (%d, %d, %d)\n", coordinates[0], coordinates[1], coordinates[2]);
-        MPI_Recv(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, 0, 0, kComm, &discard);
+        MPI_Recv(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, 0, 0, kComm, MPI_STATUS_IGNORE);
     } /* else do nothing */
 }
 

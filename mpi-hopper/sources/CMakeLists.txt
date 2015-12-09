@@ -12,7 +12,7 @@ find_package(BLAS REQUIRED)
 include_directories(${BLAS_INCLUDE_PATH})
 
 add_executable(dnsmat ${SOURCE_FILES})
-target_link_libraries(dnsmat ${MPI_LIBRARIES} ${BLASS_LIBRARIES})
+target_link_libraries(dnsmat ${MPI_LIBRARIES} ${BLASS_LIBRARIES} m)
 
 if(MPI_COMPILE_FLAGS)
     set_target_properties(dnsmat PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")

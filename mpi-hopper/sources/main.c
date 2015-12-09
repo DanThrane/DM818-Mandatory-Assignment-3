@@ -1,10 +1,10 @@
 #include <stdlib.h>
 #include <mpi.h>
-#include <math.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <math.h>
 
 #include "matrix_mul.h"
 

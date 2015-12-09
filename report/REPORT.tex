@@ -146,7 +146,7 @@ The virtual topology was created in MPI using \verb!MPI_Cart_create!, this metho
 \end{itemize}
 and outputs a new communicator for the Cartesian topology. This is used to create a 3-dimension hypercube.
 
-In order to communicator between the processes in this hybercube, we can create additional Communicators using \verb!MPI_Cart_sub!, specifying which dimensions we want our new communicator to attach to processes in.
+In order to communicate between the processes in this hybercube, we can create additional Communicators using \verb!MPI_Cart_sub!, specifying which dimensions we want our new communicator to attach to processes in. This helps simplifying the complexity of the communication code for the remaining part of the project.
 
 As an example the following line specifies that we want all processes in the i'th axis in the new communicator \verb!iComm!.
 
@@ -155,15 +155,34 @@ int iDimensions[3] = {1, 0, 0};
 MPI_Cart_sub(gridCommunicator, iDimensions, &iComm);
 \end{verbatim}
 
+Whenever we now want to communicate across all processes on the i'th dimension we can now simply use this communicator.
+
 \section{Matrix not divisible by $p^{1/3}$}
-PADDING! TODO THIS SECTION!
+%PADDING! TODO THIS SECTION!
+In order to make it possible to run this algorithm on matrix sizes which is not divisible by $p^{1/3}$ we choose to apply padding.
+
+Some background to understand this problem can be shown by thinking of the 3-dimensional cube split across p processes. Each dimension needs and equal amount of processes to split the n elements, if the $\frac{n}{p} != 0$ this will not be possible.
+
+The simple solution is to pad the original matrix with additional elements with a value of 0. The end result will remain the same, at the cost of slight additional overhead multiplying and adding the 0's.
 
 \chapter{Performance}
 \section{Runtimes}
-%In your report, all runtimes and measures that depend on runtimes, should be based on average 
-%runtimes based on 10 test runs (compare main.c).
-\chapter{Isoefficiency of the implementation}
+%In your report, all runtimes and measures that depend on runtimes, should be based on average runtimes based on 10 test runs (compare main.c).
 
+%Insert figure as Figure 5.8 and Table 5.1 in the book.
+%1) As matrix-matrix multiplication with a small number of processors can take very long for large matrices, you 	should omit certain combination of p and n.
+%2) HAVE to include (p,n) ∈ {(125,25),(125,10000),(1000,100),(1000,10000)} and a column for p=1. 
+
+%A table with the same columns and rows as the table given above, where the entries should give the percentage  	of the overall runtime that was spend for computation (use MPI_Wtime for measuring computation times between communication periods on one node only).
+
+%A table with the same columns and rows as the table given above, where the entries should give the overall runtime in seconds (use MPI_Wtime for measuring computation times between communication periods on one node only).
+
+\chapter{Isoefficiency of the implementation}
+%A discussion of your results and a discussion that compares your results to the isoefficiency function O(p(log p)^3).
+Need the results first.
+
+\chapter{Testing}
+%Your source code has to include a method that checks for a randomly chosen element of the resulting matrix, that the outcome of the parallel matrix multiplication is identical to the result that is computed in O(n) time on one node (that is the difference is smaller that a reasonably chosen small value). The correctness check should not influence the overall runtime measurements. Your executable has to perform the correctness check on at least one element.
 
 \chapter{Conclusion}
 

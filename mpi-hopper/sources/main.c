@@ -82,8 +82,8 @@ int main(int argc, char **argv) {
 
     /* Padding calculations */
     int matrixDimPadded = matrixDimensions;
-    if (matrixDimensions % (int)ceil(cbrt(processorCount)))
-        matrixDimPadded += matrixDimensions / (int)ceil(cbrt(processorCount)) - matrixDimensions % (int)ceil(cbrt(processorCount));
+    if (matrixDimensions % (int)cbrt(processorCount))
+        matrixDimPadded += matrixDimensions / (int)cbrt(processorCount) - matrixDimensions % (int)cbrt(processorCount);
 
     /* Statistics */
     double startTime = 0.0, endTime = 0.0, avg, dev; /* Timing */
@@ -98,7 +98,7 @@ int main(int argc, char **argv) {
     double *matrixA = NULL;
     double *matrixB = NULL;
     /* Do work */
-    for (int k = 0; k < 1; k++) {
+    for (int k = 0; k < 10; k++) {
         if (rank == 0) {
             matrixA = (double *) malloc(sizeof(double) * matrixDimPadded * matrixDimPadded);
             matrixB = (double *) malloc(sizeof(double) * matrixDimPadded * matrixDimPadded);
@@ -127,7 +127,6 @@ int main(int argc, char **argv) {
             times[k] = endTime - startTime;
         }
         /* Verify result */
-        MPI_Barrier(MPI_COMM_WORLD);
         if (coordinates[2] == 0) {
             checkResult(matrixDimPadded, matrixA, matrixB);
         }
@@ -166,7 +165,7 @@ void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA
     int sendCount[processorCount];
     int displacements[processorCount];
 
-    int length = (int) ceil(cbrt(processorCount));
+    int length = (int) cbrt(processorCount);
     blockLength = matrixDimension / length;
 
     receivedMatrixA = (double *) malloc(sizeof(double) * blockLength * blockLength);
@@ -266,10 +265,17 @@ void initMPI(int argc, char **argv) {
     MPI_Comm gridCommunicator;
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &maxRank);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    int processesForEachDimension = (int) ceil(cbrt(maxRank));
-    int dimensions[3] = {processesForEachDimension, processesForEachDimension, processesForEachDimension};
+    int pEachDimension = (int) cbrt(maxRank);
+    int dimensions[3] = {pEachDimension, pEachDimension, pEachDimension};
     int periods[3] = {false, false, false};
+
+    if ((pEachDimension * pEachDimension * pEachDimension) != maxRank) {
+        if (rank == 0) printf("Error! Number of processes is not a 3dim cube! Exiting..\n");
+        MPI_Finalize();
+        exit(-1);
+    }
 
     MPI_Cart_create(MPI_COMM_WORLD, 3, dimensions, periods, 0, &gridCommunicator);
     MPI_Comm_rank(gridCommunicator, &rank);
@@ -330,20 +336,9 @@ void dns() {
     distribute();
     broadcast();
     multiplyAndReduce();
-#if false
+#if DEBUG
     debugPrintMatrix();
 #endif
-}
-
-void waitForDebugger() {
-    int i = 0;
-    char hostname[256];
-    gethostname(hostname, sizeof(hostname));
-    printf("PID %d on %s ready for attach\n", getpid(), hostname);
-    fflush(stdout);
-    while (0 == i) { // Set i to some value != 0 using the debugger to continue
-        sleep(5);
-    }
 }
 
 void checkResult(int n, double *A, double *B) {
@@ -356,12 +351,12 @@ void checkResult(int n, double *A, double *B) {
         /* random int between 0 and 19 */
         int r = rand() % blockLength;
         /* make sure numbers are equal within error diff of 0.001 */
-        assert(resultMatrix[r] <= C[r]+0.001 && resultMatrix[r] >= C[r]-0.001);
-        printf("Correct!\n");
+        assert(resultMatrix[r] <= C[r]+0.0001 && resultMatrix[r] >= C[r]-0.0001);
     }
 
 }
 
+/* Prints a local process matrix, used for debugging only */
 void debugPrintMatrix() {
     if (coordinates[2] == 0) {
         int commRank;
@@ -380,5 +375,17 @@ void debugPrintMatrix() {
                 printf("\n");
             }
         }
+    }
+}
+
+/* Used to pause execution, to attach a debugger */
+void waitForDebugger() {
+    int i = 0;
+    char hostname[256];
+    gethostname(hostname, sizeof(hostname));
+    printf("PID %d on %s ready for attach\n", getpid(), hostname);
+    fflush(stdout);
+    while (0 == i) { // Set i to some value != 0 using the debugger to continue
+        sleep(5);
     }
 }

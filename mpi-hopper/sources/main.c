@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <math.h>
+#include <assert.h>
 
 #include "matrix_mul.h"
 
@@ -73,10 +74,16 @@ int main(int argc, char **argv) {
     int matrixDimensions = atoi(argv[2]);
     initMPI(argc, argv);
 
+    if (processorCount != maxRank) {
+        if (rank == 0) printf("Error! Number of processes specified are not identical! Exiting..\n");
+        MPI_Finalize();
+        exit(-1);
+    }
+
     /* Padding calculations */
-    int paddingOffset = 0;
+    int matrixDimPadded = matrixDimensions;
     if (matrixDimensions % (int)ceil(cbrt(processorCount)))
-        paddingOffset = 4;
+        matrixDimPadded += matrixDimensions / (int)ceil(cbrt(processorCount)) - matrixDimensions % (int)ceil(cbrt(processorCount));
 
     /* Statistics */
     double startTime = 0.0, endTime = 0.0, avg, dev; /* Timing */
@@ -93,13 +100,13 @@ int main(int argc, char **argv) {
     /* Do work */
     for (int k = 0; k < 1; k++) {
         if (rank == 0) {
-            matrixA = (double *) malloc(sizeof(double) * matrixDimensions * (matrixDimensions + paddingOffset));
-            matrixB = (double *) malloc(sizeof(double) * matrixDimensions * (matrixDimensions + paddingOffset));
-            memset(matrixA, 0, sizeof(double) * matrixDimensions * (matrixDimensions + paddingOffset));
-            memset(matrixB, 0, sizeof(double) * matrixDimensions * (matrixDimensions + paddingOffset));
+            matrixA = (double *) malloc(sizeof(double) * matrixDimPadded * matrixDimPadded);
+            matrixB = (double *) malloc(sizeof(double) * matrixDimPadded * matrixDimPadded);
+            memset(matrixA, 0, sizeof(double) * matrixDimPadded * matrixDimPadded);
+            memset(matrixB, 0, sizeof(double) * matrixDimPadded * matrixDimPadded);
             fillMatrices(matrixDimensions, matrixA, matrixB);
         }
-        blockAndDistribute(processorCount, matrixDimensions, matrixA, matrixB);
+        blockAndDistribute(processorCount, matrixDimPadded, matrixA, matrixB);
         if (coordinates[2] == 0) {
             resultMatrix = (double *) malloc(sizeof(double) * blockLength * blockLength);
         }
@@ -122,7 +129,7 @@ int main(int argc, char **argv) {
         /* Verify result */
         MPI_Barrier(MPI_COMM_WORLD);
         if (coordinates[2] == 0) {
-            checkResult(matrixDimensions, matrixA, matrixB);
+            checkResult(matrixDimPadded, matrixA, matrixB);
         }
         /* Reset matrices */
         if (rank == 0) {
@@ -346,19 +353,13 @@ void checkResult(int n, double *A, double *B) {
         memset(C, 0, sizeof(double) * n * n);
         squareDgemm(n, A, B, C);
 
-        /* Print expected matrix */
-        printf("EXPTECTED RESULTS:\n");
-        for (int i = 0; i < n * n; i++) {
-            if (i % n == 0) {
-                printf("\n");
-            }
-            printf("%.4f ", C[i]);
-        }
-        printf("\n");
+        /* random int between 0 and 19 */
+        int r = rand() % blockLength;
+        /* make sure numbers are equal within error diff of 0.001 */
+        assert(resultMatrix[r] <= C[r]+0.001 && resultMatrix[r] >= C[r]-0.001);
+        printf("Correct!\n");
     }
-    /* Print result matrix from each local process */
-    sleep(1);
-    debugPrintMatrix();
+
 }
 
 void debugPrintMatrix() {

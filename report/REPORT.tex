@@ -157,13 +157,22 @@ MPI_Cart_sub(gridCommunicator, iDimensions, &iComm);
 
 Whenever we now want to communicate across all processes on the i'th dimension we can now simply use this communicator.
 
+\section{The DNS algorithm}
+% todo
+
 \section{Matrix not divisible by $p^{1/3}$}
 %PADDING! TODO THIS SECTION!
 In order to make it possible to run this algorithm on matrix sizes which is not divisible by $p^{1/3}$ we choose to apply padding.
 
 Some background to understand this problem can be shown by thinking of the 3-dimensional cube split across p processes. Each dimension needs and equal amount of processes to split the n elements, if the $\frac{n}{p} != 0$ this will not be possible.
 
-The simple solution is to pad the original matrix with additional elements with a value of 0. The end result will remain the same, at the cost of slight additional overhead multiplying and adding the 0's.
+The simple solution is to pad the original matrix with additional elements with a value of 0. The end result will remain the same, at the cost of slight additional overhead multiplying and adding the 0's. The specific number of additional rows/columns added is calculated as following:
+
+\begin{align*}
+    \frac{n}{p^{1/3}} - n \mod p^{1/3}
+\end{align*}
+
+This calculates the number of elements per process first, and then subtracts the remainder we have. Thus we get the number of rows/columns we need.
 
 \chapter{Performance}
 \section{Runtimes}
@@ -183,9 +192,24 @@ Need the results first.
 
 \chapter{Testing}
 %Your source code has to include a method that checks for a randomly chosen element of the resulting matrix, that the outcome of the parallel matrix multiplication is identical to the result that is computed in O(n) time on one node (that is the difference is smaller that a reasonably chosen small value). The correctness check should not influence the overall runtime measurements. Your executable has to perform the correctness check on at least one element.
+Confirming that the final results are correct have been verified in two methods:
 
+\begin{itemize}
+\item Manually
+\item Random element check each iteration
+\end{itemize}
+
+The former was done using small numbers of \verb!n!, this was initially done to verify that the algorithm atleast works correctly.
+
+The latter will each iteration calculate the matrix multiplication on the root process, and then pick a random element and compare it against the two matrices. This is done using and assert, which would halt the program if not held. An error tolerance of 0.001 was put in place to allow for rounding errors.
+This testing is done after saving the \verb!endtime!, thus the overall runtime measurements are not affected.
 
 \chapter{Conclusion}
+Compared to the previous assignment, less time was spent on understanding how MPI works. Instead the challenge was understanding how to build Cartesian structures. This builds nicely on-top of what we previous learned and in the end gave a fundamentally understanding how to work within a parallel environment using MPI.
+
+The DNS algorithm itself was rather simple, the biggest issue was getting ones head around how to do the communication between the processes correctly.
+
+A working program was somewhat quickly composed (compared to the previous assignment) after spending a fair amount of time discussing how to attack the problem correctly. Due to severe lack of time, the code has not been adhered to different coding standards, and should be re-factored if ever worked with again.
 
 
 %-----------------------------------------------------------------

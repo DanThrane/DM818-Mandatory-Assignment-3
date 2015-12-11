@@ -17,9 +17,9 @@ void distribute();
 void broadcast();
 void multiplyAndReduce();
 void reduction(double *matrixC);
-void waitForDebugger();
 void checkResult(int n, double *A, double *B);
 void debugPrintMatrix();
+void waitForDebugger();
 
 int rank;
 int maxRank;
@@ -140,13 +140,19 @@ int main(int argc, char **argv) {
     if (rank == 0) {
         avg = average(10, times, &dev);
         /*
-         *
          * TODO Calculate efficiency:
          * For determining the speedup and the efficiency you shall not compare your measured parallel runtimes to
          * actual runtimes using p=1, but you shall assume a 8.4 Gflop/s peak performance per processor and infer the
          * sequential runtime for p=1 based on that assumption. (Therefore the column "p=1" will have efficiency
          * values <1.0 that are identical to the fraction of peak performance based on Cray's LibSci runtime
          * measurements from the first mandatory assignment.)
+         *
+         * HOWTO: Look in notes and see how E is calculated.
+         *
+         * Efficiency is a measure of the fraction of time for which a processing element is usefully employed.
+         * E = S/p   where S=Ts/Tp
+         *
+         * In this case it would be S=8.4/Tp.
          */
         writeResult(matrixDimensions, processorCount, avg, dev, 0/* EFFICIENCY */);
     }

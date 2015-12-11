@@ -18,22 +18,20 @@ void blockAndDistribute(int processorCount, int matrixDimension, double *pDouble
 
 void waitForDebugger();
 
-/**
- * The rank of this processor
- */
-int rank;
+void checkResult(int n, double *A, double *B);
 
-/**
- * The maximum rank (this is the total number of processors in the system)
- */
+void debugPrintMatrix();
+
+int rank;
 int maxRank;
 
 int coordinates[3];
 MPI_Comm iComm, jComm, kComm, ijComm;
-double *receivedMatrixA;
 
+double *receivedMatrixA;
 double *receivedMatrixB;
 double *resultMatrix;
+
 int blockLength;
 MPI_Op matrixSum;
 
@@ -75,6 +73,11 @@ int main(int argc, char **argv) {
     int matrixDimensions = atoi(argv[2]);
     initMPI(argc, argv);
 
+    /* Padding calculations */
+    int paddingOffset = 0;
+    if (matrixDimensions % (int)ceil(cbrt(processorCount)))
+        paddingOffset = 4;
+
     /* Statistics */
     double startTime = 0.0, endTime = 0.0, avg, dev; /* Timing */
     double times[10]; /* Times for all runs */
@@ -87,12 +90,13 @@ int main(int argc, char **argv) {
     /* Make and allocate matrices */
     double *matrixA = NULL;
     double *matrixB = NULL;
-
     /* Do work */
-    for (int k = 0; k < 10; k++) {
+    for (int k = 0; k < 1; k++) {
         if (rank == 0) {
-            matrixA = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
-            matrixB = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
+            matrixA = (double *) malloc(sizeof(double) * matrixDimensions * (matrixDimensions + paddingOffset));
+            matrixB = (double *) malloc(sizeof(double) * matrixDimensions * (matrixDimensions + paddingOffset));
+            memset(matrixA, 0, sizeof(double) * matrixDimensions * (matrixDimensions + paddingOffset));
+            memset(matrixB, 0, sizeof(double) * matrixDimensions * (matrixDimensions + paddingOffset));
             fillMatrices(matrixDimensions, matrixA, matrixB);
         }
         blockAndDistribute(processorCount, matrixDimensions, matrixA, matrixB);
@@ -108,33 +112,20 @@ int main(int argc, char **argv) {
 
         /* Do work */
         dns();
-#if false
-        if (coordinates[2] == 0) {
-        int localRank;
-        MPI_Barrier(ijComm);
-        MPI_Comm_rank(ijComm, &localRank);
-        for (int iwant = 0; iwant < 16; iwant++) {
-            if (iwant == localRank) {
-                printf("For (%d, %d)", coordinates[0], coordinates[1]);
-                for (int i = 0; i < blockLength * blockLength; i++) {
-                    if (i % blockLength == 0) {
-                        printf("\n");
-                    }
-                    printf("%.2f\t", resultMatrix[i]);
-                }
-            }
-            MPI_Barrier(ijComm);
-        }
-    }
-#endif
 
         /* End timer */
         MPI_Barrier(MPI_COMM_WORLD);
         if (rank == 0) {
             endTime = MPI_Wtime();
             times[k] = endTime - startTime;
-
-            /* Reset matrices */
+        }
+        /* Verify result */
+        MPI_Barrier(MPI_COMM_WORLD);
+        if (coordinates[2] == 0) {
+            checkResult(matrixDimensions, matrixA, matrixB);
+        }
+        /* Reset matrices */
+        if (rank == 0) {
             free(matrixA);
             free(matrixB);
             free(resultMatrix);
@@ -251,16 +242,16 @@ void sumMatrices(void *in, void *inout, int *length, MPI_Datatype *type) {
     double *a = (double *) in;
     double *b = (double *) inout;
     for (int i = 0; i < *length; i++) {
-        b[i] = a[i] + b[i];
+        b[i] += a[i];
     }
 }
 
 void fillMatrices(int matrixDimensions, double *matrixA, double *matrixB) {
     for (int i = 0; i < matrixDimensions * matrixDimensions; i++) {
-//        matrixA[i] = 2 * drand48() - 1; // Uniformly distributed over [-1, 1]
-//        matrixB[i] = 2 * drand48() - 1; // Uniformly distributed over [-1, 1]
-        matrixA[i] = i;
-        matrixB[i] = i;
+        matrixA[i] = 2 * drand48() - 1; // Uniformly distributed over [-1, 1]
+        matrixB[i] = 2 * drand48() - 1; // Uniformly distributed over [-1, 1]
+        //matrixA[i] = i;
+        //matrixB[i] = i;
     }
 }
 
@@ -322,6 +313,7 @@ void reduction(double *matrixC) {
 
 void multiplyAndReduce() {
     double *matrixC = (double *) malloc(sizeof(double) * blockLength * blockLength);
+    memset(matrixC, 0, sizeof(double) * blockLength * blockLength);
     squareDgemm(blockLength, receivedMatrixA, receivedMatrixB, matrixC);
     reduction(matrixC);
     free(matrixC);
@@ -330,8 +322,47 @@ void multiplyAndReduce() {
 void dns() {
     distribute();
     broadcast();
+    multiplyAndReduce();
 #if false
-    if (coordinates[2] == 1) {
+    debugPrintMatrix();
+#endif
+}
+
+void waitForDebugger() {
+    int i = 0;
+    char hostname[256];
+    gethostname(hostname, sizeof(hostname));
+    printf("PID %d on %s ready for attach\n", getpid(), hostname);
+    fflush(stdout);
+    while (0 == i) { // Set i to some value != 0 using the debugger to continue
+        sleep(5);
+    }
+}
+
+void checkResult(int n, double *A, double *B) {
+    if (rank == 0) {
+        /* Calculate expected result matrix */
+        double *C = (double *) malloc(sizeof(double) * n * n);
+        memset(C, 0, sizeof(double) * n * n);
+        squareDgemm(n, A, B, C);
+
+        /* Print expected matrix */
+        printf("EXPTECTED RESULTS:\n");
+        for (int i = 0; i < n * n; i++) {
+            if (i % n == 0) {
+                printf("\n");
+            }
+            printf("%.4f ", C[i]);
+        }
+        printf("\n");
+    }
+    /* Print result matrix from each local process */
+    sleep(1);
+    debugPrintMatrix();
+}
+
+void debugPrintMatrix() {
+    if (coordinates[2] == 0) {
         int commRank;
         MPI_Comm_rank(ijComm, &commRank);
 
@@ -343,23 +374,10 @@ void dns() {
                     if (i % blockLength == 0) {
                         printf("\n");
                     }
-                    printf("%.2f\t", receivedMatrixB[i]);
+                    printf("%.4f\t", resultMatrix[i]);
                 }
                 printf("\n");
             }
         }
-    }
-#endif
-    multiplyAndReduce();
-}
-
-void waitForDebugger() {
-    int i = 0;
-    char hostname[256];
-    gethostname(hostname, sizeof(hostname));
-    printf("PID %d on %s ready for attach\n", getpid(), hostname);
-    fflush(stdout);
-    while (0 == i) { // Set i to some value != 0 using the debugger to continue
-        sleep(5);
     }
 }

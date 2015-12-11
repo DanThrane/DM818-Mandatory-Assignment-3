@@ -8,19 +8,17 @@
 #include <assert.h>
 
 #include "matrix_mul.h"
+#include "matrix.h"
 
 void initMPI(int argc, char **argv);
-
-void fillMatrices(int matrixDimensions, double *matrixA, double *matrixB);
-
 void dns();
-
 void blockAndDistribute(int processorCount, int matrixDimension, double *pDouble, double *matrixB);
-
+void distribute();
+void broadcast();
+void multiplyAndReduce();
+void reduction(double *matrixC);
 void waitForDebugger();
-
 void checkResult(int n, double *A, double *B);
-
 void debugPrintMatrix();
 
 int rank;
@@ -158,6 +156,42 @@ int main(int argc, char **argv) {
     return 0;
 }
 
+void initMPI(int argc, char **argv) {
+    MPI_Comm gridCommunicator;
+    MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &maxRank);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    int pEachDimension = (int) cbrt(maxRank);
+    int dimensions[3] = {pEachDimension, pEachDimension, pEachDimension};
+    int periods[3] = {false, false, false};
+
+    if ((pEachDimension * pEachDimension * pEachDimension) != maxRank) {
+        if (rank == 0) printf("Error! Number of processes is not a 3dim cube! Exiting..\n");
+        MPI_Finalize();
+        exit(-1);
+    }
+
+    MPI_Cart_create(MPI_COMM_WORLD, 3, dimensions, periods, 0, &gridCommunicator);
+    MPI_Comm_rank(gridCommunicator, &rank);
+    MPI_Cart_coords(gridCommunicator, rank, 3, coordinates);
+
+    int iDimensions[3] = {1, 0, 0};
+    int jDimensions[3] = {0, 1, 0};
+    int kDimensions[3] = {0, 0, 1};
+    int ijDimensions[3] = {1, 1, 0};
+
+    MPI_Cart_sub(gridCommunicator, iDimensions, &iComm);
+    MPI_Cart_sub(gridCommunicator, jDimensions, &jComm);
+    MPI_Cart_sub(gridCommunicator, kDimensions, &kComm);
+    MPI_Cart_sub(gridCommunicator, ijDimensions, &ijComm);
+
+    MPI_Op_create(sumMatrices, true, &matrixSum);
+}
+
+/**
+ * Step A
+ */
 void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA, double *matrixB) {
     double *preparedMatrixA = NULL;
     double *preparedMatrixB = NULL;
@@ -206,36 +240,6 @@ void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA
                      blockLength * blockLength, MPI_DOUBLE, 0, ijComm);
         MPI_Scatterv(preparedMatrixB, sendCount, displacements, MPI_DOUBLE, receivedMatrixB,
                      blockLength * blockLength, MPI_DOUBLE, 0, ijComm);
-#if false
-        MPI_Barrier(ijComm);
-        if (rank == 0) {
-            for (int i = 0; i < matrixDimension * matrixDimension; i++) {
-                if (i % matrixDimension == 0) {
-                    printf("\n");
-                }
-                printf("%.2f\t", matrixA[i]);
-            }
-            printf("\n");
-            printf("----------------------------------------------\n");
-        }
-
-        int commRank;
-        MPI_Comm_rank(ijComm, &commRank);
-
-        for (int iwant = 0; iwant < 16; iwant++) {
-            MPI_Barrier(ijComm);
-            if (commRank == iwant) {
-                printf("FOR RANK: (%d, %d, %d)", coordinates[0], coordinates[1], coordinates[2]);
-                for (int i = 0; i < blockLength * blockLength; i++) {
-                    if (i % blockLength == 0) {
-                        printf("\n");
-                    }
-                    printf("%.2f\t", receivedMatrixB[i]);
-                }
-                printf("\n");
-            }
-        }
-#endif
 
         if (rank == 0) {
             free(preparedMatrixA);
@@ -244,54 +248,13 @@ void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA
     }
 }
 
-void sumMatrices(void *in, void *inout, int *length, MPI_Datatype *type) {
-    double *a = (double *) in;
-    double *b = (double *) inout;
-    for (int i = 0; i < *length; i++) {
-        b[i] += a[i];
-    }
-}
-
-void fillMatrices(int matrixDimensions, double *matrixA, double *matrixB) {
-    for (int i = 0; i < matrixDimensions * matrixDimensions; i++) {
-        matrixA[i] = 2 * drand48() - 1; // Uniformly distributed over [-1, 1]
-        matrixB[i] = 2 * drand48() - 1; // Uniformly distributed over [-1, 1]
-        //matrixA[i] = i;
-        //matrixB[i] = i;
-    }
-}
-
-void initMPI(int argc, char **argv) {
-    MPI_Comm gridCommunicator;
-    MPI_Init(&argc, &argv);
-    MPI_Comm_size(MPI_COMM_WORLD, &maxRank);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-    int pEachDimension = (int) cbrt(maxRank);
-    int dimensions[3] = {pEachDimension, pEachDimension, pEachDimension};
-    int periods[3] = {false, false, false};
-
-    if ((pEachDimension * pEachDimension * pEachDimension) != maxRank) {
-        if (rank == 0) printf("Error! Number of processes is not a 3dim cube! Exiting..\n");
-        MPI_Finalize();
-        exit(-1);
-    }
-
-    MPI_Cart_create(MPI_COMM_WORLD, 3, dimensions, periods, 0, &gridCommunicator);
-    MPI_Comm_rank(gridCommunicator, &rank);
-    MPI_Cart_coords(gridCommunicator, rank, 3, coordinates);
-
-    int iDimensions[3] = {1, 0, 0};
-    int jDimensions[3] = {0, 1, 0};
-    int kDimensions[3] = {0, 0, 1};
-    int ijDimensions[3] = {1, 1, 0};
-
-    MPI_Cart_sub(gridCommunicator, iDimensions, &iComm);
-    MPI_Cart_sub(gridCommunicator, jDimensions, &jComm);
-    MPI_Cart_sub(gridCommunicator, kDimensions, &kComm);
-    MPI_Cart_sub(gridCommunicator, ijDimensions, &ijComm);
-
-    MPI_Op_create(sumMatrices, true, &matrixSum);
+void dns() {
+    distribute();
+    broadcast();
+    multiplyAndReduce();
+#if DEBUG
+    debugPrintMatrix();
+#endif
 }
 
 /**
@@ -320,10 +283,6 @@ void broadcast() {
     MPI_Bcast(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, coordinates[2], iComm);
 }
 
-void reduction(double *matrixC) {
-    MPI_Reduce(matrixC, resultMatrix, blockLength * blockLength, MPI_DOUBLE, matrixSum, 0, kComm);
-}
-
 void multiplyAndReduce() {
     double *matrixC = (double *) malloc(sizeof(double) * blockLength * blockLength);
     memset(matrixC, 0, sizeof(double) * blockLength * blockLength);
@@ -332,13 +291,8 @@ void multiplyAndReduce() {
     free(matrixC);
 }
 
-void dns() {
-    distribute();
-    broadcast();
-    multiplyAndReduce();
-#if DEBUG
-    debugPrintMatrix();
-#endif
+void reduction(double *matrixC) {
+    MPI_Reduce(matrixC, resultMatrix, blockLength * blockLength, MPI_DOUBLE, matrixSum, 0, kComm);
 }
 
 void checkResult(int n, double *A, double *B) {

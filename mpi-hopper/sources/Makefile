@@ -10,7 +10,7 @@ LDFLAGS = -Wall
 LDLIBS = -lrt
 
 targets = dnsmat 
-objects = main.o matrix_mul_hopper.o 
+objects = main.o matrix_mul_hopper.o matrix.o
 
 .PHONY : default
 default : all
@@ -18,7 +18,7 @@ default : all
 .PHONY : all
 all : clean $(targets)
 
-dnsmat: matrix_mul_hopper.o main.o
+dnsmat: matrix_mul_hopper.o matrix.o main.o
 	$(CC) -o $@ $^ $(LDLIBS)
 
 %.o : %.c

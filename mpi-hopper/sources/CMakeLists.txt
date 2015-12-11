@@ -3,7 +3,7 @@ project(dm818_dns)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99")
 
-set(SOURCE_FILES main.c matrix_mul_imada.c matrix_mul.h)
+set(SOURCE_FILES main.c matrix_mul_imada.c matrix_mul.h matrix.c matrix.h)
 
 find_package(MPI REQUIRED)
 include_directories(${MPI_INCLUDE_PATH})

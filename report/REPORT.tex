@@ -158,7 +158,32 @@ MPI_Cart_sub(gridCommunicator, iDimensions, &iComm);
 Whenever we now want to communicate across all processes on the i'th dimension we can now simply use this communicator.
 
 \section{The DNS algorithm}
-% todo
+Implementing the DNS algortihm can be divided into a few simple steps:
+\begin{enumerate}
+\item Distribute at k'th dimension.
+\item Broadcast at j'th/i'th dimension.
+\item Multiply.
+\item Reduce k'th dimension to $k=0$.
+\end{enumerate}
+
+Initially the matrix is blocked and distributed among processes at the $k=0$ dimension. This distributing is done using \verb!MPI_Scatterv! which takes a vector of data and scatters it among the specified processes. Scatter was the correct choice here as each process in the k'th dimension requires each their data (a separate block of the matrix).
+
+\subsubsection*{Step 1: Distribute at k'th dimension}
+% This needs a rewrite. But I doubt this will happen.
+Following the algorithm from the book, the row \verb!j! is send to the k'th iteration. Such that $k=j$. This is done using Send for processes at $k=0$ and Receive for the processes at $k>0$. Using a single send and receive was chosen as this is a one-to-one communication, ie. a single process only has to hand their data to a single process at a higher dimension.
+
+Note that this is the same procedure for the B matrix, just replace \verb!j! with \verb!i!.
+
+\subsubsection*{Step 2: Broadcast at j'th dimension}
+The data given to the dimensions at $k>0$ is then broadcasted to the processes along the j'th dimension. This is done using \verb!MPI_Bcast!, as we have a one-to-many communication, the previous process who received data has to transmit the same data to the remaining processes along j'th dimension.
+
+Note that this is the same for the B matrix, using i'th dimension instead of j'th.
+
+\subsubsection*{Step 3: Multiply}
+Simply multiplying matrix \verb!(i,j)! of A with matrix \verb!(j,i)! of matrix B. This is done using the naive implementation if run on Imada, or using the BLAS library if run on hopper. The result is stored in \verb!ResultMatrix! on each process.
+
+\subsubsection*{Reduce k'th dimension to \verb!k=0!}
+Reducing along the k'th dimension is done using \verb!MPI_Reduce!, since we are doing a many-to-one communication along the k'th dimension. All processes at $k>0$ sends their data to $k=0$. 
 
 \section{Matrix not divisible by $p^{1/3}$}
 %PADDING! TODO THIS SECTION!

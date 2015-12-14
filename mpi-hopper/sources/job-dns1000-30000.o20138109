@@ -1,0 +1,23 @@
+Dims  No. Proc.  Avg. RT / Dev. (Eff.)
+[NID 01157] 2015-12-14 09:04:53 Apid 63749521: initiated application termination
+[NID 01157] 2015-12-14 09:04:31 Apid 63749521: OOM killer terminated this process.
+Application 63749521 exit signals: Killed
+Application 63749521 resources: utime ~0s, stime ~0s, Rss ~8972, inblocks ~1965750, outblocks ~4989500
+
+ + --------------------------------------------------------------------------
+ +        Job name: job-dns1000-30000
+ +          Job Id: 20138109.hopque01
+ +          System: hopper
+ +     Queued Time: Mon Dec 14 08:44:29 2015
+ +      Start Time: Mon Dec 14 08:53:36 2015
+ + Completion Time: Mon Dec 14 09:04:56 2015
+ +            User: crashh
+ +        MOM Host: nid04942
+ +           Queue: debug
+ +  Req. Resources: mppdepth=1,mppnodect=250,mppnppn=4,mppwidth=1000,walltime=00:30:00
+ +  Used Resources: cput=00:00:00,energy_used=0,mem=5896kb,vmem=135048kb,walltime=00:11:22
+ +     Acct String: m947
+ +   PBS_O_WORKDIR: /global/u1/c/crashh/DM818-Mandatory-Assignment-3/mpi-hopper/sources
+ +     Submit Args: job-dns1000-30000
+ + --------------------------------------------------------------------------
+

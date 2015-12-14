@@ -3,7 +3,7 @@
 #PBS -l mppwidth=1
 #PBS -l mppnppn=4
 #PBS -l mppdepth=1
-#PBS -l walltime=0:45:00
+#PBS -l walltime=0:30:00
 #PBS -j oe
 
 cd $PBS_O_WORKDIR

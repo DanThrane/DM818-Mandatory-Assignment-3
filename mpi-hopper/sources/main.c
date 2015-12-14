@@ -94,8 +94,11 @@ int main(int argc, char **argv) {
         matrixDimPadded += matrixDimensions / (int)cbrt(processorCount) - matrixDimensions % (int)cbrt(processorCount);
 
     /* Statistics */
+    int ITER=10;
+    if (processorCount == 1) ITER=1;
+
     double startTime = 0.0, endTime = 0.0, avg, dev; /* Timing */
-    double times[10]; /* Times for all runs */
+    double times[ITER]; /* Times for all runs */
 
     /* Write header */
     if (rank == 0) {
@@ -106,7 +109,7 @@ int main(int argc, char **argv) {
     double *matrixA = NULL;
     double *matrixB = NULL;
     /* Do work */
-    for (int k = 0; k < 10; k++) {
+    for (int k = 0; k < ITER; k++) {
         if (rank == 0) {
             matrixA = (double *) malloc(sizeof(double) * matrixDimPadded * matrixDimPadded);
             matrixB = (double *) malloc(sizeof(double) * matrixDimPadded * matrixDimPadded);
@@ -114,9 +117,7 @@ int main(int argc, char **argv) {
             memset(matrixB, 0, sizeof(double) * matrixDimPadded * matrixDimPadded);
             fillMatrices(matrixDimensions, matrixA, matrixB);
         }
-        // Todo: Ask Daniel!
-        // Is it OK to assume initial distribution is already done?
-        // or should this be done inside MPI timer?
+
         blockAndDistribute(processorCount, matrixDimPadded, matrixA, matrixB);
         if (coordinates[2] == 0) {
             resultMatrix = (double *) malloc(sizeof(double) * blockLength * blockLength);
@@ -152,13 +153,13 @@ int main(int argc, char **argv) {
     /* Print stats */
     if (rank == 0) {
         dev = 0;
-        avg = average(10, times, &dev);
+        avg = average(ITER, times, &dev);
 
         // To calculate Ts i assume we need to figure out what Ts would be with 8.4Gflop/s.
         // Since multiplying two n-by-n matrices we would have O(n^3) multiplications this could be:
         // O(n^3) / 8.400.000.000
         // source: https://en.wikipedia.org/wiki/FLOPS
-        double Ts = pow(matrixDimensions, 3)*2 / 8400000000;
+        double Ts = (pow(matrixDimensions, 3)*2) / 8400000000;
         double Tp = avg;
         double S = Ts/Tp;
         double efficiency = S / processorCount;

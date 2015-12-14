@@ -1,0 +1,16 @@
+#PBS -V
+#PBS -q debug
+#PBS -l mppwidth=512
+#PBS -l mppnppn=4
+#PBS -l mppdepth=1
+#PBS -l walltime=0:30:00
+#PBS -j oe
+
+cd $PBS_O_WORKDIR
+aprun -n 512 -N 4 ./dnsmat 512 25
+aprun -n 512 -N 4 ./dnsmat 512 100
+aprun -n 512 -N 4 ./dnsmat 512 400
+aprun -n 512 -N 4 ./dnsmat 512 800
+aprun -n 512 -N 4 ./dnsmat 512 1000
+aprun -n 512 -N 4 ./dnsmat 512 10000
+aprun -n 512 -N 4 ./dnsmat 512 20000

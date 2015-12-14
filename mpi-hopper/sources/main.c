@@ -34,7 +34,10 @@ double *resultMatrix;
 int blockLength;
 MPI_Op matrixSum;
 
-/* Print a header for results output */
+/*
+ * Print a header for results output.
+ * SOURCE: Skeleton code.
+ */
 void resultHeader() {
     printf("Dims  No. Proc.  Avg. RT / Dev. (Eff.)\n");
 }
@@ -44,7 +47,10 @@ void writeResult(int full_dim, int procs, double rt, double dev, double eff) {
     printf("%-5i %-10i %-5.5f / %-5.5f (%-5.5f)\n", full_dim, procs, rt, dev, eff);
 }
 
-/* Average and standard deviation */
+/**
+ * Average and standard deviation.
+ * SOURCE: Skeleton code.
+ */
 double average(int count, double *list, double *dev) {
     int i;
     double sum = 0.0, avg;
@@ -67,6 +73,10 @@ double average(int count, double *list, double *dev) {
     return avg;
 }
 
+/**
+ * Main method
+ * Iterates the algorithm 10 times and prints the average running time and efficiency.
+ */
 int main(int argc, char **argv) {
     int processorCount = atoi(argv[1]);
     int matrixDimensions = atoi(argv[2]);
@@ -157,11 +167,13 @@ int main(int argc, char **argv) {
         writeResult(matrixDimensions, processorCount, avg, dev, 0/* EFFICIENCY */);
     }
 
-    /* Exit program */
     MPI_Finalize();
     return 0;
 }
 
+/**
+ * Initialize MPI and create the cartesian structure.
+ */
 void initMPI(int argc, char **argv) {
     MPI_Comm gridCommunicator;
     MPI_Init(&argc, &argv);
@@ -197,6 +209,8 @@ void initMPI(int argc, char **argv) {
 
 /**
  * Step A
+ * Performs blocking of the matrices and performs initial distribution among processes
+ * at k=0.
  */
 void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA, double *matrixB) {
     double *preparedMatrixA = NULL;
@@ -242,6 +256,7 @@ void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA
             displacements[i] = i * blockLength * blockLength;
         }
 
+        // Perform the communication:
         MPI_Scatterv(preparedMatrixA, sendCount, displacements, MPI_DOUBLE, receivedMatrixA,
                      blockLength * blockLength, MPI_DOUBLE, 0, ijComm);
         MPI_Scatterv(preparedMatrixB, sendCount, displacements, MPI_DOUBLE, receivedMatrixB,
@@ -254,6 +269,10 @@ void blockAndDistribute(int processorCount, int matrixDimension, double *matrixA
     }
 }
 
+/**
+ * The DNS algorithm,
+ * assumes that initial distribution is already performed.
+ */
 void dns() {
     distribute();
     broadcast();
@@ -265,6 +284,7 @@ void dns() {
 
 /**
  * Step B
+ * Distribute along k dimension to k=j for A and k=i for B.
  */
 void distribute() {
     // Distribute matrix A
@@ -283,12 +303,18 @@ void distribute() {
 
 /**
  * Step C
+ * Broadcast elements along j dimension for A and i dimension for B.
  */
 void broadcast() {
     MPI_Bcast(receivedMatrixA, blockLength * blockLength, MPI_DOUBLE, coordinates[2], jComm);
     MPI_Bcast(receivedMatrixB, blockLength * blockLength, MPI_DOUBLE, coordinates[2], iComm);
 }
 
+/*
+ * Step D
+ * Multiply local process' A and B together.
+ * Then reduce all k>0 to k=0
+ */
 void multiplyAndReduce() {
     double *matrixC = (double *) malloc(sizeof(double) * blockLength * blockLength);
     memset(matrixC, 0, sizeof(double) * blockLength * blockLength);
@@ -301,7 +327,11 @@ void reduction(double *matrixC) {
     MPI_Reduce(matrixC, resultMatrix, blockLength * blockLength, MPI_DOUBLE, matrixSum, 0, kComm);
 }
 
+/*
+ * Checks a random element of a local process, to see if its correct.
+ */
 void checkResult(int n, double *A, double *B) {
+    // Todo: This should be fixed so it checks for all locals.
     if (rank == 0) {
         /* Calculate expected result matrix */
         double *C = (double *) malloc(sizeof(double) * n * n);
@@ -316,7 +346,9 @@ void checkResult(int n, double *A, double *B) {
 
 }
 
-/* Prints a local process matrix, used for debugging only */
+/*
+ * Prints a local process matrix, used for debugging only
+ */
 void debugPrintMatrix() {
     if (coordinates[2] == 0) {
         int commRank;

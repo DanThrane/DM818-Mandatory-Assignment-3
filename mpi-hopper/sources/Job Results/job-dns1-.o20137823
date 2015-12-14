@@ -1,0 +1,84 @@
+Dims  No. Proc.  Avg. RT / Dev. (Eff.)
+25    1          0.00008 / 0.00000 (0.04420)
+
+-------------------------------
+pcount: 1
+Time for serial (Ts): 0.000004 
+Time for parallel (Tp): 0.000084 
+Speedup (S): 0.044203 
+Total for all p: 0.000084
+-------------------------------
+Application 63744822 resources: utime ~0s, stime ~0s, Rss ~8940, inblocks ~7867, outblocks ~19958
+Dims  No. Proc.  Avg. RT / Dev. (Eff.)
+100   1          0.00046 / 0.00000 (0.51770)
+
+-------------------------------
+pcount: 1
+Time for serial (Ts): 0.000238 
+Time for parallel (Tp): 0.000460 
+Speedup (S): 0.517700 
+Total for all p: 0.000460
+-------------------------------
+Application 63744830 resources: utime ~0s, stime ~0s, Rss ~8940, inblocks ~7867, outblocks ~19958
+Dims  No. Proc.  Avg. RT / Dev. (Eff.)
+400   1          0.02054 / 0.00000 (0.74195)
+
+-------------------------------
+pcount: 1
+Time for serial (Ts): 0.015238 
+Time for parallel (Tp): 0.020538 
+Speedup (S): 0.741952 
+Total for all p: 0.020538
+-------------------------------
+Application 63744836 resources: utime ~0s, stime ~0s, Rss ~9788, inblocks ~7867, outblocks ~19958
+Dims  No. Proc.  Avg. RT / Dev. (Eff.)
+800   1          0.14662 / 0.00000 (0.83142)
+
+-------------------------------
+pcount: 1
+Time for serial (Ts): 0.121905 
+Time for parallel (Tp): 0.146623 
+Speedup (S): 0.831417 
+Total for all p: 0.146623
+-------------------------------
+Application 63744846 resources: utime ~0s, stime ~0s, Rss ~33244, inblocks ~7867, outblocks ~19958
+Dims  No. Proc.  Avg. RT / Dev. (Eff.)
+1000  1          0.27766 / 0.00000 (0.85751)
+
+-------------------------------
+pcount: 1
+Time for serial (Ts): 0.238095 
+Time for parallel (Tp): 0.277658 
+Speedup (S): 0.857513 
+Total for all p: 0.277658
+-------------------------------
+Application 63744851 resources: utime ~1s, stime ~0s, Rss ~50300, inblocks ~7867, outblocks ~19958
+Dims  No. Proc.  Avg. RT / Dev. (Eff.)
+10000 1          256.23603 / 0.00000 (0.92920)
+
+-------------------------------
+pcount: 1
+Time for serial (Ts): 238.095238 
+Time for parallel (Tp): 256.236029 
+Speedup (S): 0.929203 
+Total for all p: 256.236029
+-------------------------------
+Application 63744866 resources: utime ~265s, stime ~3s, Rss ~4706860, inblocks ~7867, outblocks ~19958
+
+ + --------------------------------------------------------------------------
+ +        Job name: job-dns1-
+ +          Job Id: 20137823.hopque01
+ +          System: hopper
+ +     Queued Time: Mon Dec 14 06:32:04 2015
+ +      Start Time: Mon Dec 14 06:32:55 2015
+ + Completion Time: Mon Dec 14 06:37:59 2015
+ +            User: crashh
+ +        MOM Host: nid04944
+ +           Queue: debug
+ +  Req. Resources: mppdepth=1,mppnodect=1,mppnppn=1,mppwidth=1,walltime=00:30:00
+ +  Used Resources: cput=00:00:02,energy_used=0,mem=5796kb,vmem=135048kb,walltime=00:05:05
+ +     Acct String: m947
+ +   PBS_O_WORKDIR: /global/u1/c/crashh/DM818-Mandatory-Assignment-3/mpi-hopper/sources
+ +     Submit Args: job-dns1-
+ + --------------------------------------------------------------------------
+

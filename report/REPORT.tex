@@ -223,8 +223,6 @@ The simple solution is to pad the original matrix with additional elements with 
     \frac{n}{p^{1/3}} - n \mod p^{1/3}
 \end{align*}
 
-This calculates the number of elements per process first, and then subtracts the remainder we have. Thus we get the number of rows/columns we need.
-
 \chapter{Performance}
 \section{Runtimes}
 %In your report, all runtimes and measures that depend on runtimes, should be based on average runtimes based on 10 test runs (compare main.c).
@@ -236,48 +234,57 @@ This calculates the number of elements per process first, and then subtracts the
 %A table with the same columns and rows as the table given above, where the entries should give the percentage  	of the overall runtime that was spend for computation (use MPI_Wtime for measuring computation times between communication periods on one node only).
 
 %A table with the same columns and rows as the table given above, where the entries should give the overall runtime in seconds (use MPI_Wtime for measuring computation times between communication periods on one node only).
+Test-runs for the program has been run with 4 different settings, using the number of processes as following:
+\begin{itemize}
+\item[] \textcolor{blue}{\# Processes}:= 1
+\item[] \textcolor{red}{\# Processes}:= 125
+\item[] \textcolor{gray}{\# Processes}:= 512
+\item[] \textcolor{yellow}{\# Processes}:= 1000
+\end{itemize}
+
+With the number of processes at 1, we can get a baseline of the best possible efficiency that can be achieved, given that zero overhead for the communication is present. The remaining numbers will then show how the increasing amount of overhead for communication affects different sizes of matrices.
+
+For matrices the different sizes run are: \{25, 100, 400, 800, 1000, 10000, 15000, 20000\}. This should give a good indication at which sizes the overhead stops dominating the calculations, thus giving a good efficiency and speed-up.
+
+\textbf{Efficiency} shows us just how good the algorithm performs, ie. how much time is spent doing calculations versus communication overhead. The bigger the number, the more time is spent doing actual calculations.
+
+\textbf{Speedup} shows us how much faster the problem is solved. Thus any number above 1 will be a faster solution than the theoretical serial solution.
+
+\subsection{The theoretical serial runtime}
+The assignment required that we did not use the $p=1$ for our serial comparison, but instead inferred a theoretical maximal achievable. This max is calculated using Hoppers theoretical max of 8.4Gflop/s divided by the complexity of the problem. Multiplying two n-by-n matrices takes $O(n^{3}$ calculations, but in order to be fair we have to include the summation of the reduce step, thus the number on calculations performed is actuall $n^{3} * 2$. Thus the best possible serial solution would be:
+\begin{align*}
+\frac{n^{3}*2}{8400000000}
+\end{align*}
+
+\subsection{The plots}
 
 \begin{figure}[H]
   \centering
+  \includegraphics[width=0.9\linewidth]{plots-eff2.png}
   \includegraphics[width=0.9\linewidth]{plots-eff1.png}
-  \caption{The efficiency for different values of number of processes and matrix dimensions.}
+  \caption{The efficiency for different values of number of processes and matrix dimensions. Table can be seen in appendix.}
   \centering
   \label{fig:sub1}
 \end{figure}
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=0.9\linewidth]{plots-eff1.png}
-  \caption{The efficiency for different values of number of processes and matrix dimensions.}
-  \centering
-  \label{fig:sub1}
-\end{figure}
+
+In figure 3.1 we can see how will the efficiency is for the different sizes of the matrices, for each amount of processes. The blue line showing the max achievable amount. As the sizes of the matrix grows the amount the overhead dominates declines rapidly, this clearly show us that using a high amount of processes is not always the best choice, but should rather be dependent on the size of the problem.
+
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.9\linewidth]{plots-speedup.png}
-  \caption{The speed-up for different values of number of processes and matrix dimensions.}
+  \caption{The speed-up for different values of number of processes and matrix dimensions. Table can be seen in appendix.}
   \centering
   \label{fig:sub1}
 \end{figure}
 
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=0.9\linewidth]{table-eff.png}
-  \caption{Table showing the efficiency for different values.}
-  \centering
-  \label{fig:sub1}
-\end{figure}
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=0.9\linewidth]{table-speedup.png}
-  \caption{Table showing the speed-up fir different values.}
-  \centering
-  \label{fig:sub1}
-\end{figure}
+Efficiency only show us how well we utilize computation time versus communication, but what is even more interesting is how much faster we solve the problem. To illustrate this the speedup is plotted for the same data-set. While the increased amount of communications makes it slower at smaller problem sizes $<400$, the increased computation power quickly increases how fast the solution is found.
 
-\chapter{Isoefficiency of the implementation}
+
+%\chapter{Isoefficiency of the implementation}
 %A discussion of your results and a discussion that compares your results to the isoefficiency function O(p(log p)^3).
-Need the results first.
-
+%
+% THIS SECTION MIGHT NOT BE DONE IN TIME! LETS HOPE IT WILL BE OK! :)
+%
 \chapter{Testing}
 %Your source code has to include a method that checks for a randomly chosen element of the resulting matrix, that the outcome of the parallel matrix multiplication is identical to the result that is computed in O(n) time on one node (that is the difference is smaller that a reasonably chosen small value). The correctness check should not influence the overall runtime measurements. Your executable has to perform the correctness check on at least one element.
 Confirming that the final results are correct have been verified in two methods:
@@ -303,9 +310,23 @@ A working program was somewhat quickly composed (compared to the previous assign
 %-----------------------------------------------------------------
 %						     APPENDIX
 %-----------------------------------------------------------------
-%/newpage
-%\newgeometry{left=2.5cm,right=2.5cm}
-%\chapter{Appendix}
-%\section{Serial algorithm plotting data}
+/newpage
+\newgeometry{left=2.5cm,right=2.5cm}
+\chapter{Appendix}
+\section{Plotting tables}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.9\linewidth]{table-eff.png}
+  \caption{Table showing the efficiency for different values.}
+  \centering
+  \label{fig:sub1}
+\end{figure}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.9\linewidth]{table-speedup.png}
+  \caption{Table showing the speed-up fir different values.}
+  \centering
+  \label{fig:sub1}
+\end{figure}
 
 \end{document}

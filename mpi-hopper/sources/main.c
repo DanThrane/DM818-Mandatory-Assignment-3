@@ -140,7 +140,7 @@ int main(int argc, char **argv) {
         }
         /* Verify result */
         if (coordinates[2] == 0) {
-            //checkResult(matrixDimPadded, matrixA, matrixB);
+            checkResult(matrixDimPadded, matrixA, matrixB);
         }
         /* Reset matrices */
         if (rank == 0) {

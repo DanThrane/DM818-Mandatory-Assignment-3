@@ -1,0 +1,29 @@
+Dims  No. Proc.  Avg. RT / Dev. (Eff.)
+100   1000       0.00172 / 0.00121 (0.00014)
+
+-------------------------------
+pcount: 1000
+Time for serial (Ts): 0.000238 
+Time for parallel (Tp): 0.001724 
+Speedup (S): 0.138131 
+Total for all p: 1.723695
+-------------------------------
+Application 63742873 resources: utime ~229s, stime ~475s, Rss ~10332, inblocks ~2063587, outblocks ~4989505
+
+ + --------------------------------------------------------------------------
+ +        Job name: job-dns1000-100
+ +          Job Id: 20137746.hopque01
+ +          System: hopper
+ +     Queued Time: Mon Dec 14 05:32:31 2015
+ +      Start Time: Mon Dec 14 05:33:37 2015
+ + Completion Time: Mon Dec 14 05:33:44 2015
+ +            User: crashh
+ +        MOM Host: nid05620
+ +           Queue: debug
+ +  Req. Resources: mppdepth=1,mppnodect=250,mppnppn=4,mppwidth=1000,walltime=00:03:00
+ +  Used Resources: cput=00:00:00,energy_used=0,mem=0kb,vmem=0kb,walltime=00:00:08
+ +     Acct String: m947
+ +   PBS_O_WORKDIR: /global/u1/c/crashh/DM818-Mandatory-Assignment-3/mpi-hopper/sources
+ +     Submit Args: job-dns1000-100
+ + --------------------------------------------------------------------------
+

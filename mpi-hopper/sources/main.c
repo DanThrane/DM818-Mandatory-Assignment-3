@@ -139,7 +139,7 @@ int main(int argc, char **argv) {
         }
         /* Verify result */
         if (coordinates[2] == 0) {
-            checkResult(matrixDimPadded, matrixA, matrixB);
+            //checkResult(matrixDimPadded, matrixA, matrixB);
         }
         /* Reset matrices */
         if (rank == 0) {
@@ -164,6 +164,7 @@ int main(int argc, char **argv) {
         writeResult(matrixDimensions, processorCount, avg, dev, efficiency);
 
         printf("\n-------------------------------\n");
+        printf("pcount: %i\n", processorCount);
         printf("Time for serial (Ts): %f \n", Ts);
         printf("Time for parallel (Tp): %f \n", Tp);
         printf("Speedup (S): %f \n", Ts/Tp);
@@ -336,6 +337,7 @@ void reduction(double *matrixC) {
 void checkResult(int n, double *A, double *B) {
     // Todo: This should be fixed so it checks for all locals.
     if (rank == 0) {
+        printf("Checking result...\n");
         /* Calculate expected result matrix */
         double *C = (double *) malloc(sizeof(double) * n * n);
         memset(C, 0, sizeof(double) * n * n);
@@ -345,6 +347,7 @@ void checkResult(int n, double *A, double *B) {
         int r = rand() % blockLength;
         /* make sure numbers are equal within error diff of 0.001 */
         assert(resultMatrix[r] <= C[r]+0.0001 && resultMatrix[r] >= C[r]-0.0001);
+        printf("Done!\n");
     }
 
 }

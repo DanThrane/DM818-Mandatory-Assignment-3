@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <mpi.h>
+#include <stdio.h>
 #include "matrix.h"
 
 void fillMatrices(int matrixDimensions, double *matrixA, double *matrixB) {

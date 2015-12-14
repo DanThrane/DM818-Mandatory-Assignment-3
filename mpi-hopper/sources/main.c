@@ -158,7 +158,8 @@ int main(int argc, char **argv) {
         // Since multiplying two n-by-n matrices we would have O(n^3) multiplications this could be:
         // O(n^3) / 8.400.000.000
         // source: https://en.wikipedia.org/wiki/FLOPS
-        double Ts = pow(matrixDimensions, 3) / 7500000000;
+        //double Ts = pow(matrixDimensions, 3) / 7500000000;
+        double Ts = 0.278945;
         double Tp = avg;
         double S = Ts/Tp;
         double efficiency = S / processorCount;

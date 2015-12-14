@@ -158,8 +158,7 @@ int main(int argc, char **argv) {
         // Since multiplying two n-by-n matrices we would have O(n^3) multiplications this could be:
         // O(n^3) / 8.400.000.000
         // source: https://en.wikipedia.org/wiki/FLOPS
-        double Ts = pow(matrixDimensions, 3) / 8400000000;
-        //double Ts = 0.278945;
+        double Ts = pow(matrixDimensions, 3)*2 / 8400000000;
         double Tp = avg;
         double S = Ts/Tp;
         double efficiency = S / processorCount;
@@ -170,7 +169,8 @@ int main(int argc, char **argv) {
         printf("Time for serial (Ts): %f \n", Ts);
         printf("Time for parallel (Tp): %f \n", Tp);
         printf("Speedup (S): %f \n", S);
-        printf("\n-------------------------------\n");
+        printf("Total for all p: %f\n", avg*processorCount);
+        printf("-------------------------------\n");
     }
 
     MPI_Finalize();

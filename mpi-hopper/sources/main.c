@@ -160,14 +160,15 @@ int main(int argc, char **argv) {
         // source: https://en.wikipedia.org/wiki/FLOPS
         double Ts = pow(matrixDimensions, 3) / 7500000000;
         double Tp = avg;
-        double efficiency = (Ts/Tp) / processorCount;
+        double S = Ts/Tp;
+        double efficiency = S / processorCount;
         writeResult(matrixDimensions, processorCount, avg, dev, efficiency);
 
         printf("\n-------------------------------\n");
         printf("pcount: %i\n", processorCount);
         printf("Time for serial (Ts): %f \n", Ts);
         printf("Time for parallel (Tp): %f \n", Tp);
-        printf("Speedup (S): %f \n", Ts/Tp);
+        printf("Speedup (S): %f \n", S);
         printf("\n-------------------------------\n");
     }
 
@@ -335,7 +336,7 @@ void reduction(double *matrixC) {
  * Checks a random element of a local process, to see if its correct.
  */
 void checkResult(int n, double *A, double *B) {
-    // Todo: This should be fixed so it checks for all locals.
+    // Todo: This should be fixed so it checks for all locals. And use dot-product instead.
     if (rank == 0) {
         printf("Checking result...\n");
         /* Calculate expected result matrix */

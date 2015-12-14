@@ -114,6 +114,9 @@ int main(int argc, char **argv) {
             memset(matrixB, 0, sizeof(double) * matrixDimPadded * matrixDimPadded);
             fillMatrices(matrixDimensions, matrixA, matrixB);
         }
+        // Todo: Ask Daniel!
+        // Is it OK to assume initial distribution is already done?
+        // or should this be done inside MPI timer?
         blockAndDistribute(processorCount, matrixDimPadded, matrixA, matrixB);
         if (coordinates[2] == 0) {
             resultMatrix = (double *) malloc(sizeof(double) * blockLength * blockLength);
@@ -148,23 +151,23 @@ int main(int argc, char **argv) {
 
     /* Print stats */
     if (rank == 0) {
+        dev = 0;
         avg = average(10, times, &dev);
-        /*
-         * TODO Calculate efficiency:
-         * For determining the speedup and the efficiency you shall not compare your measured parallel runtimes to
-         * actual runtimes using p=1, but you shall assume a 8.4 Gflop/s peak performance per processor and infer the
-         * sequential runtime for p=1 based on that assumption. (Therefore the column "p=1" will have efficiency
-         * values <1.0 that are identical to the fraction of peak performance based on Cray's LibSci runtime
-         * measurements from the first mandatory assignment.)
-         *
-         * HOWTO: Look in notes and see how E is calculated.
-         *
-         * Efficiency is a measure of the fraction of time for which a processing element is usefully employed.
-         * E = S/p   where S=Ts/Tp
-         *
-         * In this case it would be S=8.4/Tp.
-         */
-        writeResult(matrixDimensions, processorCount, avg, dev, 0/* EFFICIENCY */);
+
+        // To calculate Ts i assume we need to figure out what Ts would be with 8.4Gflop/s.
+        // Since multiplying two n-by-n matrices we would have O(n^3) multiplications this could be:
+        // O(n^3) / 8.400.000.000
+        // source: https://en.wikipedia.org/wiki/FLOPS
+        double Ts = pow(matrixDimensions, 3) / 7500000000;
+        double Tp = avg;
+        double efficiency = (Ts/Tp) / processorCount;
+        writeResult(matrixDimensions, processorCount, avg, dev, efficiency);
+
+        printf("\n-------------------------------\n");
+        printf("Time for serial (Ts): %f \n", Ts);
+        printf("Time for parallel (Tp): %f \n", Tp);
+        printf("Speedup (S): %f \n", Ts/Tp);
+        printf("\n-------------------------------\n");
     }
 
     MPI_Finalize();

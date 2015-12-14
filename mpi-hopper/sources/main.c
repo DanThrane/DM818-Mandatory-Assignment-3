@@ -123,13 +123,17 @@ int main(int argc, char **argv) {
         }
 
         /* Start timer */
+        double *C = (double *) malloc(sizeof(double) * matrixDimensions * matrixDimensions);
+        memset(C, 0, sizeof(double) * matrixDimensions * matrixDimensions);
+
         MPI_Barrier(MPI_COMM_WORLD);
         if (rank == 0) {
             startTime = MPI_Wtime();
         }
 
         /* Do work */
-        dns();
+        //dns();
+        squareDgemm(matrixDimensions, matrixA, matrixB, C);
 
         /* End timer */
         MPI_Barrier(MPI_COMM_WORLD);

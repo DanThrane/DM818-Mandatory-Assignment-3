@@ -246,9 +246,9 @@ With the number of processes at 1, we can get a baseline of the best possible ef
 
 For matrices the different sizes run are: \{25, 100, 400, 800, 1000, 10000, 15000, 20000\}. This should give a good indication at which sizes the overhead stops dominating the calculations, thus giving a good efficiency and speed-up.
 
-\textbf{Efficiency} shows us just how good the algorithm performs, ie. how much time is spent doing calculations versus communication overhead. The bigger the number, the more time is spent doing actual calculations.
+\textbf{Efficiency} shows us just how good the algorithm performs, ie. how much time is spent doing calculations versus communication overhead. The bigger the number, the more time is spent doing actual calculations. The efficiency is calculated by dividing the speed-up with the number of processes used.
 
-\textbf{Speedup} shows us how much faster the problem is solved. Thus any number above 1 will be a faster solution than the theoretical serial solution.
+\textbf{Speedup} shows us how much faster the problem is solved. Thus any number above 1 will be a faster solution than the theoretical serial solution. The speed-up is calculated by dividing the serial runtime with the parallel runtime.
 
 \subsection{The theoretical serial runtime}
 The assignment required that we did not use the $p=1$ for our serial comparison, but instead inferred a theoretical maximal achievable. This max is calculated using Hoppers theoretical max of 8.4Gflop/s divided by the complexity of the problem. Multiplying two n-by-n matrices takes $O(n^{3}$ calculations, but in order to be fair we have to include the summation of the reduce step, thus the number on calculations performed is actuall $n^{3} * 2$. Thus the best possible serial solution would be:
@@ -267,7 +267,7 @@ The assignment required that we did not use the $p=1$ for our serial comparison,
   \label{fig:sub1}
 \end{figure}
 
-In figure 3.1 we can see how will the efficiency is for the different sizes of the matrices, for each amount of processes. The blue line showing the max achievable amount. As the sizes of the matrix grows the amount the overhead dominates declines rapidly, this clearly show us that using a high amount of processes is not always the best choice, but should rather be dependent on the size of the problem.
+In figure 3.1 we can see how the efficiency is for the different sizes of the matrices. The blue line showing the max achievable amount with 1 process. As the sizes of the matrix grows the amount the overhead dominates declines rapidly, this clearly show us that using a high amount of processes is not always the best choice, but should rather be dependent on the size of the problem. As the matrix sizes get sufficiently large, the overhead will only be a fraction of the overall cost. Had the computation time been calculated, this is what we would have seen.
 
 \begin{figure}[H]
   \centering
@@ -277,7 +277,7 @@ In figure 3.1 we can see how will the efficiency is for the different sizes of t
   \label{fig:sub1}
 \end{figure}
 
-Efficiency only show us how well we utilize computation time versus communication, but what is even more interesting is how much faster we solve the problem. To illustrate this the speedup is plotted for the same data-set. While the increased amount of communications makes it slower at smaller problem sizes $<400$, the increased computation power quickly increases how fast the solution is found.
+Efficiency only show us how well we utilize computation time versus communication, but what is even more interesting is how much faster we solve the problem. To illustrate this the speed-up is plotted for the same data-set. While the increased amount of communications makes it slower at smaller problem sizes $<400$ for \verb!n!, the increased computation power quickly increases how fast the solution is found.
 
 
 %\chapter{Isoefficiency of the implementation}
@@ -287,10 +287,10 @@ Efficiency only show us how well we utilize computation time versus communicatio
 %
 \chapter{Testing}
 %Your source code has to include a method that checks for a randomly chosen element of the resulting matrix, that the outcome of the parallel matrix multiplication is identical to the result that is computed in O(n) time on one node (that is the difference is smaller that a reasonably chosen small value). The correctness check should not influence the overall runtime measurements. Your executable has to perform the correctness check on at least one element.
-Confirming that the final results are correct have been verified in two methods:
+Confirming that the final results are correct, have been verified in two methods:
 
 \begin{itemize}
-\item Manually
+\item Manually calculation
 \item Random element check each iteration
 \end{itemize}
 

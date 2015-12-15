@@ -110,12 +110,12 @@ Lars \textsc{Thomasen}\\
 \pagestyle{ruled}
 \chapter{Introduction}
 \setcounter{section}{1}
-This report documents the development of an MPI virtual topology, and the implementation of the DNS algorithm covered in DM818.
+This report documents the development of a MPI virtual topology, and the implementation of the DNS algorithm covered in DM818.
 
 The implementation takes some assumptions, such as it expects a cubic number $p$ of processors and assumes that the matrices of size $n*n \geq p^{1/3}$.
 
 \section{Contributions}
-Programming was done only using pair programming, and as such an equal contribution of this assignment has been done.
+Programming was done only using pair programming, and as such an equal contribution of this assignment has been done. Due to time constraints the report part of the assignment was done separately whenever time could be found. The quality of the report has suffered for this.
 
 \chapter{Implementation}
 \section{Design choices}
@@ -305,6 +305,8 @@ Compared to the previous assignment, less time was spent on understanding how MP
 The DNS algorithm itself was rather simple, the biggest issue was getting ones head around how to do the communication between the processes correctly.
 
 A working program was somewhat quickly composed (compared to the previous assignment) after spending a fair amount of time discussing how to attack the problem correctly. Due to severe lack of time, the code has not been adhered to different coding standards, and should be re-factored if ever worked with again.
+
+Some requirements were not done, such as plotting computation time and calculating the iso-efficiency function. This was due to time constraints and having to prioritise other assignments.
 
 
 %-----------------------------------------------------------------
